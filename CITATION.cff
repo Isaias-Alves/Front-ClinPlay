@@ -1,0 +1,29 @@
+cff-version: 1.0.1
+message: Please cite this software using these metadata.
+title: ClinPlay
+authors:
+  - family-names: Sobrenome do aluno 1
+    given-names: Nome do aluno 1
+  - family-names: Sobrenome do aluno 2
+    given-names: Nome do aluno 2
+  - family-names: Alves de Souza Santos
+    given-names: Isaías
+  - family-names: Sobrenome do aluno 4
+    given-names: Nome do aluno 4
+  - family-names: Moraes Rocha Spiazzi
+    given-names: Lucas
+  - name-suffix: Professor
+    affiliation: PUC Minas
+    family-names: Alonso Veloso
+    given-names: Eveline
+  - name-suffix: Professor
+    affiliation: PUC Minas
+    family-names: Amaral Baroni de Carvalho
+    given-names: Juliana
+keywords:
+  - 
+  - 
+repository-code: 
+license: CC-BY-4.0
+version: 1.0.0
+date-released:

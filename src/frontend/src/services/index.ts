@@ -1,0 +1,10 @@
+export { default as api } from "./api";
+export { default as authServices } from "./authServices";
+export { default as cookiesApi } from "./cookiesApi";
+export * from "./clin";
+export * from "./exerciciosServices";
+export * from "./usuarioServices";
+export * from "./protocoloServices";
+export * from "./tratamentoServices";
+export * from "./planoServices";
+export * from "./assinaturaService";
