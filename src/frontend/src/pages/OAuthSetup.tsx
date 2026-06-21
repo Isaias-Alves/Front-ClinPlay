@@ -10,6 +10,13 @@ export function OAuthSetup() {
   useEffect(() => {
     const prepararSetup = async () => {
       try {
+        // O setup token chega na URL (o backend não usa mais cookie cross-site).
+        // Guardamos para autenticar as chamadas de setup e de cadastro.
+        const setupToken = new URLSearchParams(window.location.search).get(
+          "setup_token",
+        );
+        if (setupToken) sessionStorage.setItem("setupToken", setupToken);
+
         const googleData = await authServices.getLoginSetup();
         notificar("Conta vinculada! Complete seu cadastro.", "sucesso");
         navigate("/cadastro", { replace: true, state: { googleData } });

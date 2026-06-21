@@ -1,11 +1,13 @@
 import { LuConstruction } from "react-icons/lu"; // Se tiver react-icons, fica legal
+import { authServices } from "@services";
 
 /**
  * Página temporária de Placeholder para acessos autenticados.
  * Utilizada enquanto o Dashboard principal está sob desenvolvimento.
  */
 export function DebugAwaitPage() {
-  const handleLogout = (): void => {
+  const handleLogout = async (): Promise<void> => {
+    await authServices.logout();
     localStorage.clear();
     window.location.href = "/";
   };

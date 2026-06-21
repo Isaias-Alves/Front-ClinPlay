@@ -15,8 +15,26 @@ export const authServices = {
    * @returns {Promise<LoginSetup>} Dados extraídos do Google.
    */
   getLoginSetup: async (): Promise<LoginSetup> => {
-    const response = await apiComCookies.get("/auth/setup");
+    const setupToken = sessionStorage.getItem("setupToken");
+    const response = await apiComCookies.get("/auth/setup", {
+      headers: { Authorization: `Bearer ${setupToken}` },
+    });
     return response.data;
+  },
+
+  /**
+   * Encerra a sessão: avisa o backend (DELETE /auth/logout) para invalidar a
+   * sessão e o refresh token no servidor e, em seguida, limpa os tokens locais.
+   */
+  logout: async (): Promise<void> => {
+    try {
+      await api.delete("/auth/logout");
+    } catch {
+      // Mesmo se falhar (token expirado, rede), seguimos limpando o local.
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+    }
   },
 
   /**
@@ -46,14 +64,19 @@ export const authServices = {
   cadastrarPaciente: async (
     payload: CadastroPacienteRequest,
   ): Promise<string> => {
-    const response = await apiComCookies.post("/paciente", payload);
+    const setupToken = sessionStorage.getItem("setupToken");
+    const response = await apiComCookies.post("/paciente", payload, {
+      headers: { Authorization: `Bearer ${setupToken}` },
+    });
 
-    const novoAccessToken = response.data;
-    if (novoAccessToken) {
-      localStorage.setItem("token", novoAccessToken);
+    const { access, refresh } = response.data;
+    if (access) {
+      localStorage.setItem("token", access);
+      if (refresh) localStorage.setItem("refreshToken", refresh);
+      sessionStorage.removeItem("setupToken");
     }
 
-    return novoAccessToken;
+    return access;
   },
 
   /**
@@ -65,14 +88,19 @@ export const authServices = {
   cadastrarProfissional: async (
     payload: CadastroProfissionalRequest,
   ): Promise<string> => {
-    const response = await apiComCookies.post("/profissional", payload);
+    const setupToken = sessionStorage.getItem("setupToken");
+    const response = await apiComCookies.post("/profissional", payload, {
+      headers: { Authorization: `Bearer ${setupToken}` },
+    });
 
-    const novoAccessToken = response.data;
-    if (novoAccessToken) {
-      localStorage.setItem("token", novoAccessToken);
+    const { access, refresh } = response.data;
+    if (access) {
+      localStorage.setItem("token", access);
+      if (refresh) localStorage.setItem("refreshToken", refresh);
+      sessionStorage.removeItem("setupToken");
     }
 
-    return novoAccessToken;
+    return access;
   },
 
   /**

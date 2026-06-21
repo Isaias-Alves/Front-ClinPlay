@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Header, BuscarClinicaModal } from "@components";
 import { useApp } from "../contexts/AppContext";
-import { clinicasServices } from "@services";
+import { authServices, clinicasServices } from "@services";
 import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import {
@@ -295,8 +295,8 @@ export function StartPageProfissional() {
     };
   }, [clinicaSelecionadaId, hasAnyAdminPower]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
+  const handleLogout = async () => {
+    await authServices.logout();
     navigate("/");
   };
 

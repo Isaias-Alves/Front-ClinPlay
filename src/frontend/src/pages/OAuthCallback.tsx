@@ -13,12 +13,14 @@ export function OAuthCallback() {
     if (processoExecutado.current) return;
     processoExecutado.current = true;
 
-    // Varre a URL para encontrar o token em qualquer formato possível
-    const match = window.location.href.match(/[?&#]access_token=([^&]+)/);
-    const token = match ? match[1] : null;
+    // Varre a URL (query ou fragment) para encontrar os tokens.
+    const href = window.location.href;
+    const token = href.match(/[?&#]access_token=([^&]+)/)?.[1] ?? null;
+    const refreshToken = href.match(/[?&#]refresh_token=([^&]+)/)?.[1] ?? null;
 
     if (token) {
       localStorage.setItem("token", token);
+      if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
       navigate("/inicio", { replace: true });
     } else {
       notificar(
