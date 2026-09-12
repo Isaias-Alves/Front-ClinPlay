@@ -1,4 +1,4 @@
-import FormCadastro from "./FormCadastro.jsx";
+import FormCadastro from "./FormCadastro";
 import { BrowserRouter } from "react-router-dom";
 import { userEvent, within, expect } from "storybook/test";
 

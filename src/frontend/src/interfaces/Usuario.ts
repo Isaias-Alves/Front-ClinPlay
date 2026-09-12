@@ -79,3 +79,31 @@ export interface UsuarioFormInput extends Usuario {
   termosDeUso?: boolean;
   politicaDePrivacidade?: boolean;
 }
+
+/** Payload de PUT /paciente — todos os campos são opcionais (atualização parcial). */
+export interface AtualizarPacienteRequest {
+  nome?: string;
+  telefone?: string;
+  nascimento?: string;
+  email?: string;
+  avatar?: string | null;
+}
+
+/** Payload de PUT /profissional. */
+export interface AtualizarProfissionalRequest extends AtualizarPacienteRequest {
+  especialidade?: string;
+  crefito?: string;
+  conselhoNome?: string;
+  conselhoNumero?: string;
+  conselhoUf?: UF;
+}
+
+/** Paciente resumido, como aparece nas listagens de vínculo de uma clínica. */
+export interface PacienteVinculado {
+  id: string;
+  clinPacienteId?: string;
+  nome: string;
+  avatar?: string | null;
+  email?: string;
+  telefone?: string;
+}

@@ -1,33 +1,57 @@
-import api from "./api";
+import api from "./http";
+import {
+  CadastroTratamentoRequestApi,
+  TratamentoResponseApi,
+} from "@interfaces";
 
 export const tratamentoServices = {
-  /**
-   * Cria um novo tratamento para um paciente na clínica.
-   * Rota: POST /tratamento/{clinicaId}
-   */
+  /** POST /tratamento/{clinicaId} — cria um tratamento para um paciente da clínica. */
   criar: async (
     clinicaId: string,
-    dados: {
-      clinPacienteId: string;
-      descricao: string;
-      inicio: string;
-      fim?: string | null;
-      lembreteConfig: {
-        sequencia: boolean;
-        exercicios: boolean;
-      };
-    },
-  ) => {
-    const response = await api.post(`/tratamento/${clinicaId}`, dados);
-    return response.data;
+    dados: CadastroTratamentoRequestApi,
+  ): Promise<TratamentoResponseApi> => {
+    const { data } = await api.post(`/tratamento/${clinicaId}`, dados);
+    return data;
   },
 
-  /**
-   * Finaliza um tratamento ativo.
-   * Rota: PUT /tratamento/{id}/finalizar
-   */
+  /** PUT /tratamento/{id}/finalizar */
   finalizar: async (id: string) => {
-    const response = await api.put(`/tratamento/${id}/finalizar`);
-    return response.data;
+    const { data } = await api.put(`/tratamento/${id}/finalizar`);
+    return data;
+  },
+
+  /** GET /tratamento/{id} */
+  buscarPorId: async (id: string): Promise<TratamentoResponseApi> => {
+    const { data } = await api.get(`/tratamento/${id}`);
+    return data;
+  },
+
+  /** GET /tratamento/meus — tratamentos do paciente logado. */
+  listarMeus: async (): Promise<TratamentoResponseApi[]> => {
+    const { data } = await api.get("/tratamento/meus");
+    return data;
+  },
+
+  /** GET /tratamento/clinica/{clinicaId} — tratamentos conduzidos na clínica. */
+  listarPorClinica: async (
+    clinicaId: string,
+  ): Promise<TratamentoResponseApi[]> => {
+    const { data } = await api.get(`/tratamento/clinica/${clinicaId}`);
+    return data;
+  },
+
+  /** DELETE /tratamento/{id} */
+  deletar: async (id: string): Promise<void> => {
+    await api.delete(`/tratamento/${id}`);
+  },
+
+  /** PUT /tratamento/{id}/protocolo — associa um protocolo ao tratamento. */
+  definirProtocolo: async (id: string, protocoloId: string) => {
+    const { data } = await api.put(`/tratamento/${id}/protocolo`, {
+      protocoloId,
+    });
+    return data;
   },
 };
+
+export default tratamentoServices;

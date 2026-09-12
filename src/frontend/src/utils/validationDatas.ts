@@ -43,13 +43,13 @@ const validationPatterns: Record<string, RegExp> = {
   email: /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}$/i,
 
   // CREFITO: apenas números, letras e traço, máximo 9 caracteres
-  crefito: /^[A-Za-z0-9\-]{1,9}$/,
+  crefito: /^[A-Za-z0-9-]{1,9}$/,
 
   // Nome do conselho: letras, números e espaços, 2-100 chars
-  conselhoNome: /^[A-Za-zÀ-ÿ0-9\s\-]{2,100}$/,
+  conselhoNome: /^[A-Za-zÀ-ÿ0-9\s-]{2,100}$/,
 
   // Número do conselho: alfanumérico, até 20 chars
-  conselhoNumero: /^[A-Za-z0-9\-\/]{1,20}$/,
+  conselhoNumero: /^[A-Za-z0-9/-]{1,20}$/,
 };
 
 const validateNascimento = (value: string | undefined): string | boolean => {

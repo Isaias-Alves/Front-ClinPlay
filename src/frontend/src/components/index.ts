@@ -10,6 +10,8 @@ import { BuscarClinicaModal } from "./BuscarClinicaModal";
 import { SeletorPaciente } from "./SeletorPaciente";
 import { ModalPrescreverExercicio } from "./ModalPrescreverExercicio";
 
+export type { PrescricaoPayload } from "./ModalPrescreverExercicio";
+
 export {
   LoginButtonGoogle,
   FormCadastro,

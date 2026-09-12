@@ -15,7 +15,11 @@ import {
   exerciciosServices,
   clinicasServices,
 } from "@services";
-import { TratamentoResponseApi, ExercicioInfoResponse } from "@interfaces";
+import type {
+  ClinicaVinculo,
+  ExercicioInfoResponse,
+  TratamentoResponseApi,
+} from "@interfaces";
 
 interface TratamentoExibicao extends TratamentoResponseApi {
   protocoloNome?: string;
@@ -36,109 +40,135 @@ interface TratamentoExibicao extends TratamentoResponseApi {
  * @returns {JSX.Element} A página estruturada de tratamentos do paciente.
  */
 export function MeusProtocolosPage() {
-  const [vinculos, setVinculos] = useState<any[]>([]);
+  const [vinculos, setVinculos] = useState<ClinicaVinculo[]>([]);
   const [vinculoSelecionado, setVinculoSelecionado] = useState<string>("");
 
   const [tratamentos, setTratamentos] = useState<TratamentoExibicao[]>([]);
-  const [carregandoTratamentos, setCarregandoTratamentos] = useState(false);
   const [tratamentoAberto, setTratamentoAberto] = useState<string | null>(null);
 
-  useEffect(() => {
-    carregarVinculosIniciais();
-  }, []);
-
-  useEffect(() => {
-    if (vinculoSelecionado) {
-      carregarPlanoDeTratamentos(vinculoSelecionado);
-    } else {
-      setTratamentos([]);
-    }
-  }, [vinculoSelecionado]);
+  /**
+   * Vínculo cujos tratamentos já estão em memória. "Carregando" vira valor
+   * derivado: assim o efeito não liga a flag de forma síncrona, o que
+   * forçava uma renderização extra a cada troca de vínculo.
+   */
+  const [tratamentosDe, setTratamentosDe] = useState<string | null>(null);
+  const carregandoTratamentos =
+    Boolean(vinculoSelecionado) && tratamentosDe !== vinculoSelecionado;
 
   /**
-   * Realiza a primeira requisição do fluxo para descobrir os vínculos do paciente.
+   * Primeira etapa do fluxo: descobre os vínculos do paciente.
    * Endpoint consumido: GET /clin/paciente/self
    */
-  const carregarVinculosIniciais = async () => {
-    try {
-      const meusVinculos = await clinicasServices.buscarMeusVinculos();
-      setVinculos(meusVinculos || []);
+  useEffect(() => {
+    let cancelado = false;
 
-      if (meusVinculos && meusVinculos.length === 1) {
-        setVinculoSelecionado(meusVinculos[0].id);
-      }
-    } catch (error) {
-      console.error(
-        "Erro ao executar a primeira etapa (buscar vínculos)",
-        error,
-      );
-    }
-  };
+    clinicasServices
+      .buscarMinhasClinicas()
+      .then((meusVinculos) => {
+        if (cancelado) return;
+        setVinculos(meusVinculos || []);
+
+        // Com um único vínculo não há o que escolher: já seleciona.
+        if (meusVinculos?.length === 1) {
+          setVinculoSelecionado(meusVinculos[0].id);
+        }
+      })
+      .catch((error) => {
+        if (cancelado) return;
+        console.error(
+          "Erro ao executar a primeira etapa (buscar vínculos)",
+          error,
+        );
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   /**
-   * Realiza a segunda requisição do fluxo utilizando o clinPacienteId selecionado.
+   * Segunda etapa do fluxo: os tratamentos do vínculo selecionado, já com os
+   * detalhes de protocolo e exercícios resolvidos em paralelo.
    * Endpoint consumido: GET /tratamento/self/{clinPacienteId}
-   * @param {string} clinPacienteId - O UUID do vínculo selecionado.
    */
-  const carregarPlanoDeTratamentos = async (clinPacienteId: string) => {
-    setCarregandoTratamentos(true);
-    setTratamentoAberto(null);
-    try {
-      const listaTratamentos =
-        await tratamentoServices.listarMeus(clinPacienteId);
+  useEffect(() => {
+    if (!vinculoSelecionado) return;
 
-      const tratamentosComDetalhes = await Promise.all(
-        listaTratamentos.map(async (tratamento) => {
-          if (tratamento.protocoloId) {
-            try {
-              const protocolo = await protocolosServices.buscarPorId(
-                tratamento.protocoloId,
-              );
+    // `cancelado` impede que a resposta de um vínculo anterior sobrescreva a
+    // lista do vínculo escolhido depois dele.
+    let cancelado = false;
 
-              let exerciciosDetalhados: any[] = [];
-              if (protocolo.exercicioIds && protocolo.exercicioIds.length > 0) {
-                const promessasExercicios = protocolo.exercicioIds.map((exId) =>
-                  exerciciosServices.buscarExercicioPorId(exId),
+    const carregarPlanoDeTratamentos = async () => {
+      try {
+        const listaTratamentos = await tratamentoServices.listarMeus();
+
+        const tratamentosComDetalhes = await Promise.all(
+          listaTratamentos.map(async (tratamento) => {
+            if (tratamento.protocoloId) {
+              try {
+                const protocolo = await protocolosServices.buscarPorId(
+                  tratamento.protocoloId,
                 );
-                exerciciosDetalhados = await Promise.all(promessasExercicios);
+
+                let exerciciosDetalhados: ExercicioInfoResponse[] = [];
+                if (
+                  protocolo.exercicioIds &&
+                  protocolo.exercicioIds.length > 0
+                ) {
+                  const promessasExercicios = protocolo.exercicioIds.map(
+                    (exId) => exerciciosServices.buscarPorId(exId),
+                  );
+                  exerciciosDetalhados = await Promise.all(promessasExercicios);
+                }
+
+                return {
+                  ...tratamento,
+                  protocoloNome: protocolo.nome,
+                  exercicios: exerciciosDetalhados,
+                };
+              } catch (err) {
+                console.error(
+                  `Falha ao obter dados complementares do protocolo ${tratamento.protocoloId}`,
+                  err,
+                );
+                return {
+                  ...tratamento,
+                  protocoloNome: "Protocolo Indisponível",
+                  exercicios: [],
+                };
               }
-
-              return {
-                ...tratamento,
-                protocoloNome: protocolo.nome,
-                exercicios: exerciciosDetalhados,
-              };
-            } catch (err) {
-              console.error(
-                `Falha ao obter dados complementares do protocolo ${tratamento.protocoloId}`,
-                err,
-              );
-              return {
-                ...tratamento,
-                protocoloNome: "Protocolo Indisponível",
-                exercicios: [],
-              };
             }
-          }
-          return {
-            ...tratamento,
-            protocoloNome: "Sem protocolo definido",
-            exercicios: [],
-          };
-        }),
-      );
+            return {
+              ...tratamento,
+              protocoloNome: "Sem protocolo definido",
+              exercicios: [],
+            };
+          }),
+        );
 
-      setTratamentos(tratamentosComDetalhes);
-    } catch (error) {
-      console.error(
-        "Erro ao executar a segunda etapa (buscar tratamentos por vínculo)",
-        error,
-      );
-      setTratamentos([]);
-    } finally {
-      setCarregandoTratamentos(false);
-    }
-  };
+        if (cancelado) return;
+        setTratamentos(tratamentosComDetalhes);
+        setTratamentoAberto(null);
+      } catch (error) {
+        if (cancelado) return;
+        console.error(
+          "Erro ao executar a segunda etapa (buscar tratamentos por vínculo)",
+          error,
+        );
+        setTratamentos([]);
+      } finally {
+        if (!cancelado) setTratamentosDe(vinculoSelecionado);
+      }
+    };
+
+    void carregarPlanoDeTratamentos();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [vinculoSelecionado]);
+
+  const tratamentosVisiveis = vinculoSelecionado ? tratamentos : [];
 
   const toggleTratamento = (id: string) => {
     setTratamentoAberto(tratamentoAberto === id ? null : id);
@@ -200,7 +230,7 @@ export function MeusProtocolosPage() {
               A consultar os seus protocolos e dados de exercícios...
             </p>
           </div>
-        ) : tratamentos.length === 0 ? (
+        ) : tratamentosVisiveis.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center border-2 border-dashed border-slate-200 flex flex-col items-center shadow-sm">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
               <FiBookOpen className="text-3xl text-slate-300" />
@@ -215,7 +245,7 @@ export function MeusProtocolosPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {tratamentos.map((t) => (
+            {tratamentosVisiveis.map((t) => (
               <div
                 key={t.id}
                 className={`bg-white rounded-2xl border ${
@@ -246,7 +276,7 @@ export function MeusProtocolosPage() {
 
                       <div className="flex flex-wrap items-center gap-y-1 gap-x-3 mt-1.5">
                         <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                          {Math.round(t.progressao || 0)}% concluído
+                          {Math.round(t.progresso || 0)}% concluído
                         </span>
                         <span className="text-[10px] text-slate-400 flex items-center gap-1 font-medium">
                           <FiClock /> Início:{" "}
@@ -292,7 +322,7 @@ export function MeusProtocolosPage() {
                                   {ex.nome_exercicio}
                                 </p>
                                 <span className="inline-block text-[10px] font-medium text-slate-500 mt-0.5 px-2 py-0.5 bg-slate-100 rounded-md">
-                                  {ex.categoria}
+                                  {ex.jogo}
                                 </span>
                               </div>
                             </div>
@@ -320,7 +350,7 @@ export function MeusProtocolosPage() {
         )}
       </main>
 
-      <BottomBar tipo="paciente" ativo="protocolos" />
+      <BottomBar />
     </div>
   );
 }

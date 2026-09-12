@@ -9,28 +9,49 @@ import tseslint from "typescript-eslint";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  globalIgnores(["dist"]),
+  globalIgnores(["dist", "storybook-static", "node_modules"]),
   {
     files: ["**/*.{js,jsx,ts,tsx}"],
     extends: [
       js.configs.recommended,
+      // `tseslint.configs.recommended` já registra o parser e o plugin. A
+      // configuração anterior só apontava `tseslint.parser` e pedia
+      // `project: true`, o que exigia que todo arquivo lintado estivesse no
+      // `tsconfig.json` — `eslint.config.js` e `vite.config.js` não estão.
+      ...tseslint.configs.recommended,
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
     languageOptions: {
-      ecmaVersion: 2020,
+      ecmaVersion: "latest",
+      sourceType: "module",
       globals: globals.browser,
-      parser: tseslint.parser,
-      parserOptions: {
-        ecmaVersion: "latest",
-        ecmaFeatures: { jsx: true },
-        sourceType: "module",
-        project: true,
-      },
+      parserOptions: { ecmaFeatures: { jsx: true } },
     },
     rules: {
-      "no-unused-vars": ["error", { varsIgnorePattern: "^[A-Z_]" }],
+      // O código ainda carrega bastante `any` vindo das respostas da API.
+      // Como aviso, o débito fica visível sem deixar `npm run lint` sempre
+      // vermelho — o que faria a equipe ignorar os erros que importam.
+      "@typescript-eslint/no-explicit-any": "warn",
+
+      // A regra base do ESLint não entende tipos/enums e acusa falsos
+      // positivos em TypeScript; a versão do plugin é a correta.
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { varsIgnorePattern: "^[A-Z_]", argsIgnorePattern: "^_" },
+      ],
     },
+  },
+  {
+    // Arquivos de configuração rodam em Node, não no navegador.
+    files: ["*.config.{js,ts}", ".storybook/**/*.{js,ts}"],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    // Service worker: escopo próprio (`self`, `importScripts`, `clients`).
+    files: ["public/*-sw.js"],
+    languageOptions: { globals: globals.serviceworker },
   },
   ...storybook.configs["flat/recommended"],
 ]);

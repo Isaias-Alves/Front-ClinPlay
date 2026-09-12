@@ -1,4 +1,4 @@
-import api from "./api";
+import api from "./http";
 
 export interface PlanoResponse {
   id: string; // ou number dependendo do seu backend

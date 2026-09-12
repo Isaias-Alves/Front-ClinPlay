@@ -20,13 +20,35 @@ import {
   FiCheck,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
+import { mensagemDeErro } from "@utils";
+import type {
+  ErroSocket,
+  EventoTratamento,
+  ExercicioInfoResponse,
+  FeedbackView,
+  PrescricaoView,
+  TratamentoResponseApi,
+} from "@interfaces";
+import type { PrescricaoPayload } from "@components";
 
 type EstadoSala = {
-  tratamento: any | null;
+  tratamento: TratamentoResponseApi | null;
   carregando: boolean;
 };
 
-function salaReducer(estado: EstadoSala, evento: any): EstadoSala {
+/** Prescrições do tratamento corrente, ou lista vazia se ainda não chegaram. */
+const prescricoesDe = (tratamento: TratamentoResponseApi): PrescricaoView[] =>
+  tratamento.prescricoes ?? [];
+
+/**
+ * Aplica os eventos da sala ao tratamento em memória.
+ *
+ * `evento` é a união discriminada `EventoTratamento`: o TypeScript agora
+ * exige a checagem do `case` antes de ler `evento.prescricao`,
+ * `evento.feedbackId` e afins. Como `any`, qualquer campo era aceito — e um
+ * `case` novo no backend passaria despercebido aqui.
+ */
+function salaReducer(estado: EstadoSala, evento: EventoTratamento): EstadoSala {
   switch (evento.evento) {
     case "ESTADO_ATUAL":
       return { ...estado, tratamento: evento.tratamento, carregando: false };
@@ -44,9 +66,9 @@ function salaReducer(estado: EstadoSala, evento: any): EstadoSala {
           ? {
               ...estado.tratamento,
               prescricoes: [
-                ...estado.tratamento.prescricoes,
+                ...prescricoesDe(estado.tratamento),
                 evento.prescricao,
-              ].sort((a: any, b: any) => a.ordem - b.ordem),
+              ].sort((a, b) => a.ordem - b.ordem),
             }
           : null,
       };
@@ -56,8 +78,8 @@ function salaReducer(estado: EstadoSala, evento: any): EstadoSala {
         tratamento: estado.tratamento
           ? {
               ...estado.tratamento,
-              prescricoes: estado.tratamento.prescricoes.filter(
-                (p: any) => p.id !== evento.prescricaoId,
+              prescricoes: prescricoesDe(estado.tratamento).filter(
+                (p) => p.id !== evento.prescricaoId,
               ),
             }
           : null,
@@ -70,7 +92,7 @@ function salaReducer(estado: EstadoSala, evento: any): EstadoSala {
               ...estado.tratamento,
               progresso: evento.progresso,
               ultimaAcao: evento.ultimaAcao,
-              prescricoes: estado.tratamento.prescricoes.map((p: any) =>
+              prescricoes: prescricoesDe(estado.tratamento).map((p) =>
                 p.id === evento.feedback.prescricaoId
                   ? {
                       ...p,
@@ -87,9 +109,9 @@ function salaReducer(estado: EstadoSala, evento: any): EstadoSala {
         tratamento: estado.tratamento
           ? {
               ...estado.tratamento,
-              prescricoes: estado.tratamento.prescricoes.map((p: any) => ({
+              prescricoes: prescricoesDe(estado.tratamento).map((p) => ({
                 ...p,
-                feedbacks: p.feedbacks?.map((f: any) =>
+                feedbacks: p.feedbacks?.map((f) =>
                   f.id === evento.feedbackId ? { ...f, visto: true } : f,
                 ),
               })),
@@ -115,7 +137,9 @@ export function TratamentoSalaPage() {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [exerciciosClinica, setExerciciosClinica] = useState<any[]>([]);
+  const [exerciciosClinica, setExerciciosClinica] = useState<
+    ExercicioInfoResponse[]
+  >([]);
   const [carregandoExercicios, setCarregandoExercicios] = useState(false);
 
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -156,9 +180,9 @@ export function TratamentoSalaPage() {
       await tratamentoServices.finalizar(id);
       notificar("Tratamento finalizado com sucesso!", "sucesso");
       navigate("/inicio-profissional");
-    } catch (error: any) {
+    } catch (error) {
       notificar(
-        error.response?.data || "Não foi possível finalizar o tratamento.",
+        mensagemDeErro(error, "Não foi possível finalizar o tratamento."),
         "erro",
       );
     } finally {
@@ -168,19 +192,25 @@ export function TratamentoSalaPage() {
 
   const todosFeedbacks = useMemo(() => {
     if (!t?.prescricoes) return [];
-    const unificados = t.prescricoes.flatMap((p: any) => {
-      if (!p.feedbacks) return [];
-      return p.feedbacks.map((f: any) => ({
+    const unificados = prescricoesDe(t).flatMap((p) =>
+      (p.feedbacks ?? []).map((f) => ({
         ...f,
         exercicioNome: p.exercicioNome,
         prescricaoId: p.id,
-      }));
-    });
-    return unificados.sort(
-      (a: any, b: any) =>
-        new Date(b.quando).getTime() - new Date(a.quando).getTime(),
+      })),
     );
-  }, [t?.prescricoes]);
+    // Cópia antes de ordenar: `sort` altera o array no lugar, e devolver um
+    // array mutado de dentro de um `useMemo` impede o React Compiler de
+    // preservar a memoização.
+    // `quando` pode faltar em feedbacks antigos; tratados como os mais velhos.
+    const instante = (f: FeedbackView) =>
+      f.quando ? new Date(f.quando).getTime() : 0;
+
+    return [...unificados].sort((a, b) => instante(b) - instante(a));
+    // Depende de `t` inteiro, e não de `t?.prescricoes`: com o encadeamento
+    // opcional o React Compiler não consegue correlacionar a dependência com
+    // o que o corpo lê, e desiste de preservar a memoização.
+  }, [t]);
 
   const abrirModalExercicios = async () => {
     setIsModalOpen(true);
@@ -193,14 +223,14 @@ export function TratamentoSalaPage() {
       const dados =
         await clinicasServices.listarExercicios(clinicaSelecionadaId);
       setExerciciosClinica(dados || []);
-    } catch (error) {
+    } catch {
       notificar("Erro ao carregar a lista de exercícios.", "erro");
     } finally {
       setCarregandoExercicios(false);
     }
   };
 
-  const handleConfirmarPrescricao = (payload: any) => {
+  const handleConfirmarPrescricao = (payload: PrescricaoPayload) => {
     enviar({
       tipo: "ADICIONAR_PRESCRICAO",
       ...payload,
@@ -357,15 +387,15 @@ export function TratamentoSalaPage() {
             >
               <FiMessageSquare
                 className={
-                  todosFeedbacks.some((f: any) => !f.visto)
+                  todosFeedbacks.some((f) => !f.visto)
                     ? "text-amber-500 animate-pulse"
                     : "text-slate-400 group-hover:text-emerald-500"
                 }
               />
               Feedbacks
-              {todosFeedbacks.filter((f: any) => !f.visto).length > 0 && (
+              {todosFeedbacks.filter((f) => !f.visto).length > 0 && (
                 <span className="bg-amber-100 text-amber-600 px-2 py-0.5 rounded-lg text-[10px] ml-1 shadow-sm">
-                  {todosFeedbacks.filter((f: any) => !f.visto).length} novos
+                  {todosFeedbacks.filter((f) => !f.visto).length} novos
                 </span>
               )}
             </button>
@@ -399,7 +429,7 @@ export function TratamentoSalaPage() {
           ) : (
             <AnimatePresence>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {t.prescricoes.map((p: any) => (
+                {prescricoesDe(t).map((p) => (
                   <motion.div
                     key={p.id}
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -661,7 +691,7 @@ export function TratamentoSalaPage() {
                     </p>
                   </div>
                 ) : (
-                  todosFeedbacks.map((fb: any) => (
+                  todosFeedbacks.map((fb) => (
                     <div
                       key={fb.id}
                       className={`p-5 rounded-[24px] border transition-all ${!fb.visto ? "bg-amber-50/50 border-amber-300 shadow-md" : "bg-white border-slate-200 shadow-sm"}`}
@@ -673,7 +703,9 @@ export function TratamentoSalaPage() {
                           </span>
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mt-1">
                             <FiClock />{" "}
-                            {new Date(fb.quando).toLocaleString("pt-BR")}
+                            {fb.quando
+                              ? new Date(fb.quando).toLocaleString("pt-BR")
+                              : "—"}
                           </span>
                         </div>
                         {!fb.visto && (

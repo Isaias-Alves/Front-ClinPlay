@@ -1,5 +1,5 @@
-import api from "./api";
-import apiComCookies from "./cookiesApi"; // Importando a instância que aceita cookies
+import api, { apiComCookies } from "./http";
+import { tokenStorage } from "./tokenStorage";
 import {
   CadastroPacienteRequest,
   CadastroProfissionalRequest,
@@ -8,6 +8,12 @@ import {
   LoginSetup,
 } from "@interfaces";
 
+/** Persiste o access token devolvido pelos fluxos de cadastro/refresh. */
+const guardarToken = (token: string): string => {
+  if (token) tokenStorage.salvar(token);
+  return token;
+};
+
 export const authServices = {
   /**
    * Obtém os dados de setup do Google (Nome, Email, Avatar) para preencher o formulário de cadastro.
@@ -15,26 +21,8 @@ export const authServices = {
    * @returns {Promise<LoginSetup>} Dados extraídos do Google.
    */
   getLoginSetup: async (): Promise<LoginSetup> => {
-    const setupToken = sessionStorage.getItem("setupToken");
-    const response = await apiComCookies.get("/auth/setup", {
-      headers: { Authorization: `Bearer ${setupToken}` },
-    });
+    const response = await apiComCookies.get("/auth/setup");
     return response.data;
-  },
-
-  /**
-   * Encerra a sessão: avisa o backend (DELETE /auth/logout) para invalidar a
-   * sessão e o refresh token no servidor e, em seguida, limpa os tokens locais.
-   */
-  logout: async (): Promise<void> => {
-    try {
-      await api.delete("/auth/logout");
-    } catch {
-      // Mesmo se falhar (token expirado, rede), seguimos limpando o local.
-    } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("refreshToken");
-    }
   },
 
   /**
@@ -64,19 +52,9 @@ export const authServices = {
   cadastrarPaciente: async (
     payload: CadastroPacienteRequest,
   ): Promise<string> => {
-    const setupToken = sessionStorage.getItem("setupToken");
-    const response = await apiComCookies.post("/paciente", payload, {
-      headers: { Authorization: `Bearer ${setupToken}` },
-    });
+    const response = await apiComCookies.post("/paciente", payload);
 
-    const { access, refresh } = response.data;
-    if (access) {
-      localStorage.setItem("token", access);
-      if (refresh) localStorage.setItem("refreshToken", refresh);
-      sessionStorage.removeItem("setupToken");
-    }
-
-    return access;
+    return guardarToken(response.data);
   },
 
   /**
@@ -88,19 +66,9 @@ export const authServices = {
   cadastrarProfissional: async (
     payload: CadastroProfissionalRequest,
   ): Promise<string> => {
-    const setupToken = sessionStorage.getItem("setupToken");
-    const response = await apiComCookies.post("/profissional", payload, {
-      headers: { Authorization: `Bearer ${setupToken}` },
-    });
+    const response = await apiComCookies.post("/profissional", payload);
 
-    const { access, refresh } = response.data;
-    if (access) {
-      localStorage.setItem("token", access);
-      if (refresh) localStorage.setItem("refreshToken", refresh);
-      sessionStorage.removeItem("setupToken");
-    }
-
-    return access;
+    return guardarToken(response.data);
   },
 
   /**
@@ -124,6 +92,27 @@ export const authServices = {
    * Rota: PATCH /auth/fcm-token
    * @param {string} fcmToken - O token gerado pelo Firebase SDK no frontend.
    */
+  /**
+   * Troca o cookie httpOnly de refresh por um novo access token.
+   * Rota: GET /auth/refresh
+   */
+  renovarToken: async (): Promise<string> => {
+    const response = await apiComCookies.get<string>("/auth/refresh");
+    return guardarToken(response.data);
+  },
+
+  /**
+   * Encerra a sessão no backend e limpa o estado local.
+   * Rota: DELETE /auth/logout
+   */
+  logout: async (): Promise<void> => {
+    try {
+      await api.delete("/auth/logout");
+    } finally {
+      tokenStorage.limpar();
+    }
+  },
+
   salvarFcmToken: async (fcmToken: string) => {
     const response = await api.patch("/auth/fcm-token", { fcmToken });
     return response.data;

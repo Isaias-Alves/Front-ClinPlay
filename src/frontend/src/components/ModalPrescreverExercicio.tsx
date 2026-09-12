@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FiPlus,
@@ -9,25 +9,69 @@ import {
   FiSave,
 } from "react-icons/fi";
 import { formatarHorasParaHHMM, formatarHHMMParaHoras } from "@utils";
+import type { ExercicioConfig, ExercicioInfoResponse } from "@interfaces";
 import { PatternFormat } from "react-number-format"; // IMPORT ADICIONADO AQUI!
+
+/** Corpo de `ADICIONAR_PRESCRICAO` enviado pela sala de tratamento. */
+export interface PrescricaoPayload {
+  exercicioId: string;
+  objetivo: string;
+  observacao: string;
+  disponivel: boolean;
+  customizacao: ExercicioConfig;
+}
+
+/**
+ * Campos do formulário. `tempoInativo` é texto porque a interface o edita
+ * como HH:MM; vira número de horas só na hora de montar o payload.
+ */
+type FormPrescricao = Omit<ExercicioConfig, "tempoInativo"> & {
+  objetivo: string;
+  observacao: string;
+  tempoInativo: string;
+};
+
+/** Campos numéricos editáveis na grade de ajustes finos. */
+type CampoNumerico = Extract<
+  keyof FormPrescricao,
+  | "vezesAoDia"
+  | "series"
+  | "repeticoes"
+  | "tempoPrincipal"
+  | "tempoSecundario"
+  | "tempoDescanso"
+>;
+
+/** Grade de ajustes finos do motor, na ordem em que aparece na tela. */
+const CAMPOS_NUMERICOS: Array<{
+  label: string;
+  key: CampoNumerico;
+  step?: string;
+}> = [
+  { label: "Sessões/Dia", key: "vezesAoDia" },
+  { label: "Séries", key: "series" },
+  { label: "Reps", key: "repeticoes" },
+  { label: "T. Princ (s)", key: "tempoPrincipal", step: "0.1" },
+  { label: "T. Sec (s)", key: "tempoSecundario", step: "0.1" },
+  { label: "Pausa (s)", key: "tempoDescanso", step: "0.1" },
+];
 
 interface ModalPrescreverExercicioProps {
   isOpen: boolean;
   onClose: () => void;
-  exercicios: any[];
+  exercicios: ExercicioInfoResponse[];
   carregando: boolean;
-  onConfirm: (payload: any) => void;
+  onConfirm: (payload: PrescricaoPayload) => void;
 }
 
 export const ModalPrescreverExercicio: React.FC<
   ModalPrescreverExercicioProps
 > = ({ isOpen, onClose, exercicios, carregando, onConfirm }) => {
   const [buscaExercicio, setBuscaExercicio] = useState("");
-  const [exercicioParaPrescrever, setExercicioParaPrescrever] = useState<
-    any | null
-  >(null);
+  const [exercicioParaPrescrever, setExercicioParaPrescrever] =
+    useState<ExercicioInfoResponse | null>(null);
 
-  const [formPrescricao, setFormPrescricao] = useState({
+  const [formPrescricao, setFormPrescricao] = useState<FormPrescricao>({
     objetivo: "",
     observacao: "Siga as instruções do exercício.",
     acaoPrincipal: "",
@@ -42,13 +86,18 @@ export const ModalPrescreverExercicio: React.FC<
     tempoDescanso: 6,
   });
 
-  // Limpa o estado interno sempre que o modal fechar
-  useEffect(() => {
+  // Limpa o estado interno sempre que o modal fechar. Feito durante a
+  // renderização (padrão "ajustar estado ao mudar de prop") e não num
+  // `useEffect`: o efeito só corria depois da pintura, o que fazia a busca
+  // antiga reaparecer por um quadro ao reabrir o modal.
+  const [estavaAberto, setEstavaAberto] = useState(isOpen);
+  if (estavaAberto !== isOpen) {
+    setEstavaAberto(isOpen);
     if (!isOpen) {
       setBuscaExercicio("");
       setExercicioParaPrescrever(null);
     }
-  }, [isOpen]);
+  }
 
   const exerciciosFiltrados = exercicios.filter(
     (ex) =>
@@ -56,7 +105,7 @@ export const ModalPrescreverExercicio: React.FC<
       ex.jogo.toLowerCase().includes(buscaExercicio.toLowerCase()),
   );
 
-  const handlePrepararPrescricao = (ex: any) => {
+  const handlePrepararPrescricao = (ex: ExercicioInfoResponse) => {
     setExercicioParaPrescrever(ex);
     setFormPrescricao({
       objetivo: "",
@@ -294,26 +343,7 @@ export const ModalPrescreverExercicio: React.FC<
                         <FiSliders /> Parâmetros do Motor
                       </h4>
                       <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                        {[
-                          { label: "Sessões/Dia", key: "vezesAoDia" },
-                          { label: "Séries", key: "series" },
-                          { label: "Reps", key: "repeticoes" },
-                          {
-                            label: "T. Princ (s)",
-                            key: "tempoPrincipal",
-                            step: "0.1",
-                          },
-                          {
-                            label: "T. Sec (s)",
-                            key: "tempoSecundario",
-                            step: "0.1",
-                          },
-                          {
-                            label: "Pausa (s)",
-                            key: "tempoDescanso",
-                            step: "0.1",
-                          },
-                        ].map((campo) => (
+                        {CAMPOS_NUMERICOS.map((campo) => (
                           <div
                             key={campo.key}
                             className="bg-slate-800 p-2 rounded-xl border border-slate-700"
@@ -324,7 +354,7 @@ export const ModalPrescreverExercicio: React.FC<
                             <input
                               type="number"
                               step={campo.step}
-                              value={(formPrescricao as any)[campo.key]}
+                              value={formPrescricao[campo.key]}
                               onChange={(e) =>
                                 setFormPrescricao({
                                   ...formPrescricao,

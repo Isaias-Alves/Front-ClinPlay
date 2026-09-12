@@ -14,7 +14,7 @@ import {
 } from "react-icons/fi";
 import { RiHospitalLine } from "react-icons/ri";
 import { useApp } from "@contexts";
-import { ESTADOS_BR } from "@utils";
+import { ESTADOS_BR, mensagemDeErro } from "@utils";
 import { clinicasServices } from "@services";
 
 interface ClinicaFormData {
@@ -59,6 +59,10 @@ export function ClinicaDetalhesPage() {
   }, [clinica, clinicas, navigate, notificar]);
 
   const onSubmit = async (data: ClinicaFormData) => {
+    // O formulário só renderiza com a clínica carregada, mas a guarda torna
+    // isso explícito em vez de depender de um `any` que calava o compilador.
+    if (!clinica) return;
+
     setIsSubmitting(true);
     try {
       const idDaClinica = clinica.clinicaId || clinica.id;
@@ -75,9 +79,8 @@ export function ClinicaDetalhesPage() {
       notificar("Dados da clínica atualizados com sucesso!", "sucesso");
       await refreshData();
       setIsEditing(false);
-    } catch (error: any) {
-      const msg = error.response?.data || "Erro ao atualizar a clínica.";
-      notificar(typeof msg === "string" ? msg : "Erro de atualização.", "erro");
+    } catch (error) {
+      notificar(mensagemDeErro(error, "Erro ao atualizar a clínica."), "erro");
     } finally {
       setIsSubmitting(false);
     }
@@ -193,40 +196,13 @@ export function ClinicaDetalhesPage() {
                 {/* Secção de Gerir Plano */}
                 <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1.5">
                       <FiAward className="text-amber-500" /> Plano da Unidade
                     </p>
-                    {clinica.planoNome ? (
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="text-base font-bold text-slate-700">
-                          {clinica.planoNome}
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-lg border ${
-                            clinica.planoStatus === "ATIVA"
-                              ? "bg-emerald-50 text-emerald-600 border-emerald-200"
-                              : clinica.planoStatus === "VENCIDA"
-                                ? "bg-amber-50 text-amber-600 border-amber-200"
-                                : "bg-rose-50 text-rose-600 border-rose-200"
-                          }`}
-                        >
-                          {clinica.planoStatus === "ATIVA"
-                            ? "Ativa"
-                            : clinica.planoStatus === "VENCIDA"
-                              ? "Vencida"
-                              : clinica.planoStatus === "CANCELADA"
-                                ? "Cancelada"
-                                : clinica.planoStatus === "INADIMPLENTE"
-                                  ? "Inadimplente"
-                                  : clinica.planoStatus}
-                        </span>
-                      </div>
-                    ) : (
-                      <p className="text-sm font-semibold text-slate-600">
-                        Gerencie a assinatura e os limites para convidar novos
-                        profissionais e pacientes.
-                      </p>
-                    )}
+                    <p className="text-sm font-semibold text-slate-600">
+                      Gerencie a assinatura e os limites para convidar novos
+                      profissionais e pacientes.
+                    </p>
                   </div>
                   <button
                     onClick={handleAlterarPlano}

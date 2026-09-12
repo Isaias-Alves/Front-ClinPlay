@@ -3,61 +3,74 @@ import { useParams, useNavigate } from "react-router-dom";
 import { FaHospital, FaArrowLeft, FaUserCheck, FaLink } from "react-icons/fa";
 import { BottomBar } from "../components/BottomBar";
 import { clinicasServices } from "@services";
+import type { ClinicaVinculo } from "@interfaces";
+
+/** Verifica se o paciente já está vinculado à clínica de um dado código. */
+const verificarVinculo = async (codigo: string): Promise<boolean> => {
+  const minhasClinicas = await clinicasServices.buscarMinhasClinicas();
+  return minhasClinicas.some((c) => c.codigo === codigo);
+};
 
 export function ClinicaUserDetalhesPage() {
   const { codigo } = useParams<{ codigo: string }>();
   const navigate = useNavigate();
   const [clinicaNome, setClinicaNome] = useState("Consultando Clínica...");
-  const [clinicaData, setClinicaData] = useState<any>(null);
+  const [clinicaData, setClinicaData] = useState<ClinicaVinculo | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [estaVinculado, setEstaVinculado] = useState(false);
 
-  const carregarDados = async () => {
-    if (!codigo) return;
+  useEffect(() => {
+    // `cancelado` descarta as respostas se a tela sair — ou se o código da
+    // URL mudar — antes de elas chegarem.
+    let cancelado = false;
 
-    try {
-      const data = await clinicasServices.buscarClinicaPaciente(codigo);
-      setClinicaData(data);
-      setClinicaNome(data.nome || "Clínica sem nome");
+    const carregarDados = async () => {
+      if (!codigo) return;
 
       try {
-        const minhasClinicas = await clinicasServices.buscarMeus();
+        const data = await clinicasServices.buscarPorTag(codigo);
+        if (cancelado) return;
+        setClinicaData(data);
+        setClinicaNome(data.nome || "Clínica sem nome");
 
-        const vinculado = minhasClinicas.some((c: any) => c.codigo === codigo);
-
-        console.log("[DEBUG] Código da URL:", codigo);
-        console.log("[DEBUG] Clínicas retornadas:", minhasClinicas);
-        console.log("[DEBUG] Está vinculado:", vinculado);
-
-        setEstaVinculado(vinculado);
-      } catch (e) {
-        console.error("[DEBUG] Erro ao buscar clínicas:", e);
-        setEstaVinculado(false);
+        try {
+          const vinculado = await verificarVinculo(codigo);
+          if (cancelado) return;
+          setEstaVinculado(vinculado);
+        } catch (e) {
+          if (cancelado) return;
+          console.error("Erro ao buscar clínicas vinculadas:", e);
+          setEstaVinculado(false);
+        }
+      } catch (error) {
+        if (!cancelado) {
+          console.error("Erro ao carregar dados da clínica:", error);
+        }
+      } finally {
+        if (!cancelado) setCarregando(false);
       }
-    } catch (error) {
-      console.error("Erro ao carregar dados da clínica:", error);
-    } finally {
-      setCarregando(false);
-    }
-  };
+    };
 
-  useEffect(() => {
-    carregarDados();
+    void carregarDados();
+
+    return () => {
+      cancelado = true;
+    };
   }, [codigo]);
 
   const handleSolicitarVinculo = async () => {
     try {
-      const usuarioLocal = localStorage.getItem("usuario");
-      const usuarioId = usuarioLocal ? JSON.parse(usuarioLocal).id : null;
-
-      if (!usuarioId || !codigo) {
-        alert("Erro ao identificar o usuário ou clínica.");
+      if (!codigo) {
+        alert("Não foi possível identificar a clínica.");
         return;
       }
 
-      await clinicasServices.solicitarVinculoPaciente(codigo, usuarioId);
+      // O solicitante vem do token; não há ID de usuário para enviar.
+      await clinicasServices.solicitarVinculoPaciente(codigo);
       alert("Solicitação de vínculo enviada com sucesso!");
-      carregarDados();
+      // Só o estado do vínculo pode ter mudado; recarregar a clínica inteira
+      // faria a tela piscar sem necessidade.
+      setEstaVinculado(await verificarVinculo(codigo));
     } catch (error) {
       console.error("Erro ao solicitar vínculo", error);
       alert("Não foi possível solicitar o vínculo.");
@@ -142,7 +155,7 @@ export function ClinicaUserDetalhesPage() {
         )}
       </main>
 
-      <BottomBar tipo="profissional" ativo="clínica" />
+      <BottomBar />
     </div>
   );
 }

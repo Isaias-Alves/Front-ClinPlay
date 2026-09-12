@@ -10,46 +10,51 @@ import {
 } from "react-icons/fa";
 import { BottomBar } from "../components/BottomBar";
 import { clinicasServices } from "@services";
-import { ClinicaProfissionalResponse } from "@interfaces";
+import { ClinicaVinculo } from "@interfaces";
+import { tratarErroClinica } from "@utils";
 
-const tratarErroClinica = (error: any): string => {
-  if (error.response) {
-    const status = error.response.status;
-    const data = error.response.data;
-
-    if (typeof data === "string" && data.trim() !== "") {
-      return data;
-    }
-
-    switch (status) {
-      case 400:
-        return "Erro nos dados enviados. Verifique se o nome possui pelo menos 5 caracteres.";
-      case 401:
-        return "Sua sessão expirou. Faça login novamente.";
-      case 403:
-        return "Você não tem permissão para realizar esta ação.";
-      case 404:
-        return "Clínica não encontrada no sistema.";
-      case 409:
-        return "Já existe uma clínica cadastrada com este código.";
-      default:
-        return "Erro ao processar a requisição. Verifique os dados.";
-    }
-  }
-  return "Não foi possível conectar ao servidor. Verifique sua conexão.";
+/** Lista as clínicas do profissional, normalizando a resposta para um array. */
+const buscarMinhasClinicas = async (): Promise<ClinicaVinculo[]> => {
+  const response = await clinicasServices.buscarMinhasClinicas();
+  return Array.isArray(response) ? response : [];
 };
 
 export function ClinicaPage() {
-  const [clinicas, setClinicas] = useState<ClinicaProfissionalResponse[]>([]);
+  const [clinicas, setClinicas] = useState<ClinicaVinculo[]>([]);
   const [termoBusca, setTermoBusca] = useState("");
-  const [carregando, setCarregando] = useState(false);
+  // Já nasce carregando: a tela busca as clínicas na montagem. Assim o efeito
+  // não precisa ligar a flag de forma síncrona, o que forçaria uma
+  // renderização extra antes da primeira pintura.
+  const [carregando, setCarregando] = useState(true);
   const navigate = useNavigate();
 
-  const buscarClinicas = async () => {
+  useEffect(() => {
+    // `cancelado` descarta a resposta se a tela sair antes de ela chegar.
+    let cancelado = false;
+
+    buscarMinhasClinicas()
+      .then((lista) => {
+        if (!cancelado) setClinicas(lista);
+      })
+      .catch((error) => {
+        if (cancelado) return;
+        console.error("Erro ao buscar clínicas do profissional", error);
+        setClinicas([]);
+      })
+      .finally(() => {
+        if (!cancelado) setCarregando(false);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  /** Recarrega a lista a pedido do usuário (após excluir, por exemplo). */
+  const recarregarClinicas = async () => {
     setCarregando(true);
     try {
-      const response = await clinicasServices.buscarClinicasDoProfissional();
-      setClinicas(Array.isArray(response) ? response : response.data || []);
+      setClinicas(await buscarMinhasClinicas());
     } catch (error) {
       console.error("Erro ao buscar clínicas do profissional", error);
       setClinicas([]);
@@ -58,15 +63,11 @@ export function ClinicaPage() {
     }
   };
 
-  useEffect(() => {
-    buscarClinicas();
-  }, []);
-
   const deletarClinica = async (id: string) => {
     if (!window.confirm("Deseja realmente remover esta clínica?")) return;
     try {
       await clinicasServices.deletarClinica(id);
-      buscarClinicas();
+      await recarregarClinicas();
     } catch (error) {
       console.error("Erro ao deletar clínica", error);
       alert(tratarErroClinica(error));
@@ -81,8 +82,7 @@ export function ClinicaPage() {
 
     setCarregando(true);
     try {
-      const response =
-        await clinicasServices.buscarClinicaProfissional(termoBusca);
+      const response = await clinicasServices.buscarPorTag(termoBusca);
       const clinicaEncontrada = response.data || response;
 
       if (clinicaEncontrada) {
@@ -102,15 +102,10 @@ export function ClinicaPage() {
   const handleVincularClinica = async (e: React.MouseEvent, codigo: string) => {
     e.stopPropagation();
     try {
-      const usuarioLocal = localStorage.getItem("usuario");
-      const usuarioId = usuarioLocal ? JSON.parse(usuarioLocal).id : null;
-
-      if (!usuarioId) {
-        alert("Usuário não identificado. Faça login novamente.");
-        return;
-      }
-
-      await clinicasServices.solicitarVinculo(codigo, usuarioId);
+      // O backend identifica o solicitante pelo token; não há ID para enviar.
+      // A leitura anterior de localStorage("usuario") nunca resolvia, pois essa
+      // chave nunca é gravada — o vínculo falhava sempre.
+      await clinicasServices.solicitarVinculoProfissional(codigo);
       alert(`Vinculação à clínica ${codigo} realizada com sucesso!`);
     } catch (error) {
       console.error("Erro ao se vincular à clínica", error);
@@ -133,7 +128,7 @@ export function ClinicaPage() {
 
       <main className="max-w-md mx-auto p-6 space-y-8">
         <button
-          onClick={() => navigate("/clinica/formulario")}
+          onClick={() => navigate("/planos")}
           className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-4 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
         >
           <FaPlus /> Nova Clínica
@@ -168,7 +163,7 @@ export function ClinicaPage() {
               <button
                 onClick={() => {
                   setTermoBusca("");
-                  buscarClinicas();
+                  void recarregarClinicas();
                 }}
                 className="w-1/2 bg-white border border-slate-200 text-sm py-3 rounded-xl font-medium text-slate-600 hover:bg-slate-50 transition-colors"
               >
@@ -191,7 +186,9 @@ export function ClinicaPage() {
             clinicas.map((item) => (
               <div
                 key={item.codigo}
-                onClick={() => navigate(`/clinica/${item.codigo}`)}
+                onClick={() =>
+                  navigate(`/clinicas/${item.clinicaId || item.id}`)
+                }
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group animate-in fade-in slide-in-from-bottom-2 cursor-pointer hover:border-emerald-500 transition-all"
               >
                 <div className="flex items-center gap-4">
@@ -214,7 +211,9 @@ export function ClinicaPage() {
 
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={(e) => handleVincularClinica(e, item.codigo)}
+                    onClick={(e) =>
+                      item.codigo && handleVincularClinica(e, item.codigo)
+                    }
                     className="p-3 text-slate-300 hover:text-blue-600 rounded-xl transition-all"
                     title="Vincular à clínica"
                   >
@@ -223,7 +222,7 @@ export function ClinicaPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/clinica/formulario/${item.codigo}`);
+                      navigate(`/clinicas/${item.clinicaId || item.id}`);
                     }}
                     className="p-3 text-slate-300 hover:text-emerald-600 rounded-xl transition-all"
                   >
@@ -245,7 +244,9 @@ export function ClinicaPage() {
         </section>
       </main>
 
-      <BottomBar tipo="profissional" ativo="clínica" />
+      <BottomBar />
     </div>
   );
 }
+
+export default ClinicaPage;

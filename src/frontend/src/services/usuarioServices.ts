@@ -1,29 +1,33 @@
-import api from "./api";
+import api from "./http";
+import { authServices } from "./authServices";
+import {
+  AtualizarPacienteRequest,
+  AtualizarProfissionalRequest,
+} from "@interfaces";
 
-// O refresh do access token em caso de 401 é tratado de forma centralizada
-// pelo interceptor de response em ./api (renova com o refresh token e refaz
-// a requisição). Por isso estes métodos chamam a API diretamente.
-
+/**
+ * Operações de conta do profissional logado.
+ *
+ * A renovação de token em caso de 401 é feita pelo interceptor de `http.ts`,
+ * não mais por blocos try/catch replicados em cada método.
+ */
 export const profissionalServices = {
-  atualizar: async (dados: any) => {
-    const response = await api.put("/profissional", dados);
-    return response.data;
-  },
+  atualizar: (dados: AtualizarProfissionalRequest) =>
+    authServices.atualizarProfissional(dados),
 
   deletar: async () => {
-    const response = await api.delete("/profissional");
-    return response.data;
+    const { data } = await api.delete("/profissional");
+    return data;
   },
 };
 
+/** Operações de conta do paciente logado. */
 export const pacienteServices = {
-  atualizar: async (dados: any) => {
-    const response = await api.put("/paciente", dados);
-    return response.data;
-  },
+  atualizar: (dados: AtualizarPacienteRequest) =>
+    authServices.atualizarPaciente(dados),
 
   deletar: async () => {
-    const response = await api.delete("/paciente");
-    return response.data;
+    const { data } = await api.delete("/paciente");
+    return data;
   },
 };

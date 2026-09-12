@@ -31,14 +31,16 @@ import {
   SwitchTipo,
 } from "@components";
 import { motion, AnimatePresence } from "framer-motion";
+import type { LoginSetup } from "@interfaces";
 
 interface LocationState {
-  googleData?: {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-  };
+  /**
+   * O que a `OAuthSetup` envia é o retorno de `GET /auth/setup`, ou seja um
+   * `LoginSetup`. A declaração anterior descrevia outro formato
+   * (`{ id, name, ... }`) e o código lia `data.id`, campo que o `LoginSetup`
+   * não tem — o `googleId` do cadastro ficava sempre indefinido.
+   */
+  googleData?: LoginSetup;
 }
 
 function FormCadastro() {
@@ -87,15 +89,11 @@ function FormCadastro() {
 
   useEffect(() => {
     const carregarDados = async () => {
-      let rawData = state?.googleData;
-
-      if (!rawData) {
-        rawData = (await fetchGoogleData()) as any;
-      }
+      const rawData = state?.googleData ?? (await fetchGoogleData());
 
       if (rawData) {
-        const data = Array.isArray(rawData) ? rawData[0] : rawData;
-        setGoogleId(data.id);
+        const data = rawData;
+        setGoogleId(data.googleId);
 
         setTimeout(() => {
           if (data?.nome)
@@ -113,7 +111,7 @@ function FormCadastro() {
       }
     };
     carregarDados();
-  }, [location.state, setValue, fetchGoogleData]);
+  }, [state?.googleData, setValue, fetchGoogleData]);
 
   return (
     <div className="w-full bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
@@ -288,13 +286,16 @@ function FormCadastro() {
                 <div className="relative flex items-center">
                   <FaRegIdBadge className="absolute left-4 text-slate-400 text-lg" />
                   {(() => {
-                    const { onChange: crfOnChange, ...crfRest } = register("crefito", {
-                      required: validationMessages.required,
-                      pattern: {
-                        value: validationPatterns.crefito,
-                        message: validationMessages.crefito,
+                    const { onChange: crfOnChange, ...crfRest } = register(
+                      "crefito",
+                      {
+                        required: validationMessages.required,
+                        pattern: {
+                          value: validationPatterns.crefito,
+                          message: validationMessages.crefito,
+                        },
                       },
-                    });
+                    );
                     return (
                       <input
                         type="text"
@@ -302,7 +303,9 @@ function FormCadastro() {
                         maxLength={9}
                         {...crfRest}
                         onChange={(e) => {
-                          e.target.value = e.target.value.replace(/[^A-Za-z0-9\-]/g, "").slice(0, 9);
+                          e.target.value = e.target.value
+                            .replace(/[^A-Za-z0-9-]/g, "")
+                            .slice(0, 9);
                           crfOnChange(e);
                         }}
                         className={`w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl border outline-none text-sm transition-colors ${errors.crefito ? "border-red-500 focus:border-red-500" : "border-slate-200 focus:border-emerald-500"}`}
@@ -433,7 +436,9 @@ function FormCadastro() {
                 <div className="relative flex items-center">
                   <LuMapPin className="absolute left-4 text-slate-400 text-lg" />
                   <select
-                    {...register("conselhoUf", { required: validationMessages.required })}
+                    {...register("conselhoUf", {
+                      required: validationMessages.required,
+                    })}
                     className={`w-full pl-12 pr-4 py-3 bg-slate-50 rounded-xl border outline-none text-sm transition-colors appearance-none ${errors.conselhoUf ? "border-red-500 focus:border-red-500" : "border-slate-200 focus:border-emerald-500"}`}
                   >
                     <option value="">UF do Conselho</option>

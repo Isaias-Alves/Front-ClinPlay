@@ -34,47 +34,61 @@ export function ProtocolosPage() {
 
   const [protocolos, setProtocolos] = useState<ProtocoloResponseApi[]>([]);
   const [busca, setBusca] = useState("");
-  const [carregando, setCarregando] = useState(false);
 
+  /**
+   * Clínica cujos protocolos já estão em `protocolos`. Com isso o estado de
+   * "carregando" é derivado em vez de guardado: não existe mais um
+   * `setCarregando(true)` síncrono dentro do efeito, que obrigava uma
+   * renderização extra a cada troca de clínica.
+   */
+  const [protocolosDe, setProtocolosDe] = useState<string | null>(null);
+  const carregando =
+    Boolean(clinicaSelecionada) && protocolosDe !== clinicaSelecionada;
+
+  /** Busca as clínicas vinculadas ao profissional logado. */
   useEffect(() => {
-    carregarClinicas();
+    let cancelado = false;
+
+    clinicasServices
+      .buscarMinhasClinicas()
+      .then((dados) => {
+        if (!cancelado) setClinicas(dados);
+      })
+      .catch((error) => {
+        if (!cancelado) console.error("Erro ao carregar clínicas", error);
+      });
+
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
+  /** Busca os protocolos do plano da clínica selecionada. */
   useEffect(() => {
-    if (clinicaSelecionada) {
-      carregarProtocolos(clinicaSelecionada);
-    } else {
-      setProtocolos([]);
-    }
+    if (!clinicaSelecionada) return;
+
+    // `cancelado` evita que uma resposta lenta de uma clínica anterior
+    // sobrescreva a lista da clínica escolhida depois dela.
+    let cancelado = false;
+
+    protocolosServices
+      .listar(clinicaSelecionada)
+      .then((dados) => {
+        if (!cancelado) setProtocolos(dados);
+      })
+      .catch((error) => {
+        if (cancelado) return;
+        console.error("Erro ao carregar protocolos", error);
+        setProtocolos([]);
+      })
+      .finally(() => {
+        if (!cancelado) setProtocolosDe(clinicaSelecionada);
+      });
+
+    return () => {
+      cancelado = true;
+    };
   }, [clinicaSelecionada]);
-
-  /**
-   * Busca as clínicas vinculadas ao profissional logado usando a API real.
-   */
-  const carregarClinicas = async () => {
-    try {
-      const dados = await clinicasServices.buscarClinicasDoProfissional();
-      setClinicas(dados);
-    } catch (error) {
-      console.error("Erro ao carregar clínicas", error);
-    }
-  };
-
-  /**
-   * Busca a lista de protocolos vinculados ao plano da clínica na API.
-   */
-  const carregarProtocolos = async (clinPlanId: string) => {
-    setCarregando(true);
-    try {
-      const dados = await protocolosServices.listar(clinPlanId);
-      setProtocolos(dados);
-    } catch (error) {
-      console.error("Erro ao carregar protocolos", error);
-      setProtocolos([]);
-    } finally {
-      setCarregando(false);
-    }
-  };
 
   /**
    * Solicita a exclusão de um protocolo à API e atualiza a lista local.
@@ -91,8 +105,10 @@ export function ProtocolosPage() {
     }
   };
 
-  const protocolosFiltrados = protocolos.filter((p) =>
-    p.nome.toLowerCase().includes(busca.toLowerCase()),
+  // Sem clínica escolhida não há o que listar; derivar evita limpar
+  // `protocolos` por efeito só para esvaziar a tela.
+  const protocolosFiltrados = (clinicaSelecionada ? protocolos : []).filter(
+    (p) => p.nome.toLowerCase().includes(busca.toLowerCase()),
   );
 
   return (
@@ -258,7 +274,7 @@ export function ProtocolosPage() {
         )}
       </main>
 
-      <BottomBar tipo="profissional" ativo="protocolos" />
+      <BottomBar />
     </div>
   );
 }

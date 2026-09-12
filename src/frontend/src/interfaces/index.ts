@@ -6,3 +6,4 @@ export * from "./Clinicas";
 export * from "./Exercicios";
 export * from "./Protocolo";
 export * from "./Tratamentos";
+export * from "./Vinculos";

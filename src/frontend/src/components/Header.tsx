@@ -10,6 +10,7 @@ import {
   FiSearch,
 } from "react-icons/fi";
 import { RiHospitalLine } from "react-icons/ri";
+import { dropdownVariants } from "@utils";
 
 /**
  * Tipagem adaptada para o payload real do Backend
@@ -89,17 +90,6 @@ const Header = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const dropdownVariants = {
-    hidden: { opacity: 0, y: -10, scale: 0.95 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: { type: "spring", stiffness: 200, damping: 20 },
-    },
-    exit: { opacity: 0, y: -10, scale: 0.95, transition: { duration: 0.2 } },
-  };
 
   return (
     <header className="relative w-full max-w-4xl mx-auto flex items-center justify-between bg-white rounded-3xl p-3 shadow-sm border border-slate-100 z-40 mb-6">

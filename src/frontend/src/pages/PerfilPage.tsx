@@ -23,7 +23,6 @@ export function PerfilPage() {
   // Permite visualizar o próprio perfil (padrão) ou o perfil de alguém passado na navegação
   const usuario = location.state?.usuario || usuarioLogado;
   const tipo = location.state?.tipo || tipoLogado;
-  const isMeuPerfil = !location.state?.usuario;
 
   if (!usuario) {
     return (

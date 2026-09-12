@@ -4,6 +4,7 @@ import { authServices } from "@services";
 import {
   CadastroPacienteRequest,
   CadastroProfissionalRequest,
+  UF,
   UsuarioFormInput,
 } from "@interfaces";
 
@@ -48,7 +49,7 @@ const useCadastroForm = () => {
   };
 
   const salvarUsuario = async (
-    formData: any,
+    formData: UsuarioFormInput,
     googleId?: string,
     avatarUrl?: string | null,
   ) => {
@@ -65,18 +66,29 @@ const useCadastroForm = () => {
     const [dia, mes, ano] = partesData;
     const dataFormatada = `${ano}-${mes}-${dia}`;
 
+    /**
+     * `UsuarioFormInput` marca como opcionais os campos que só existem num
+     * dos perfis. A validação do formulário já os exige, mas checar aqui
+     * evita enviar `undefined` ao backend caso alguma regra mude — antes,
+     * com `formData: any`, isso passava direto e virava um 400 obscuro.
+     */
+    const exigir = (valor: string | undefined, campo: string): string => {
+      if (!valor?.trim()) throw new Error(`Preencha o campo ${campo}.`);
+      return valor;
+    };
+
     try {
       if (formData.tipo === "paciente") {
         const payload: CadastroPacienteRequest = {
           nome: formData.nome,
           telefone: formData.telefone,
-          cpf: formData.cpf?.replace(/\D/g, ""),
+          cpf: exigir(formData.cpf, "CPF").replace(/\D/g, ""),
           nascimento: dataFormatada,
           email: formData.email,
           avatar: avatarUrl || undefined,
         };
 
-        await authServices.cadastrarPaciente(payload, googleId);
+        await authServices.cadastrarPaciente(payload);
 
         setNotificacao({
           isOpen: true,
@@ -90,14 +102,14 @@ const useCadastroForm = () => {
           nascimento: dataFormatada,
           email: formData.email,
           avatar: avatarUrl || undefined,
-          crefito: formData.crefito,
-          especialidade: formData.especialidade,
-          conselhoNome: formData.conselhoNome,
-          conselhoNumero: formData.conselhoNumero,
-          conselhoUf: formData.conselhoUf,
+          crefito: exigir(formData.crefito, "CREFITO"),
+          especialidade: exigir(formData.especialidade, "especialidade"),
+          conselhoNome: exigir(formData.conselhoNome, "nome do conselho"),
+          conselhoNumero: exigir(formData.conselhoNumero, "número do conselho"),
+          conselhoUf: exigir(formData.conselhoUf, "UF do conselho") as UF,
         };
 
-        await authServices.cadastrarProfissional(payload, googleId);
+        await authServices.cadastrarProfissional(payload);
 
         setNotificacao({
           isOpen: true,
@@ -106,7 +118,7 @@ const useCadastroForm = () => {
         });
       }
       reset();
-    } catch (error: any) {
+    } catch {
       const mensagemErro =
         formData.tipo === "paciente"
           ? "Erro ao cadastrar paciente."

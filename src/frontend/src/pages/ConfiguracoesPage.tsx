@@ -5,21 +5,17 @@ import { FiSun, FiMoon, FiUser, FiArrowLeft } from "react-icons/fi";
 import { useApp } from "@contexts";
 
 /**
- * Extrai o primeiro nome de um nome completo.
- * @param nomeCompleto - Nome completo do usuário.
- * @returns Primeiro nome do usuário.
- */
-const extrairPrimeiroNome = (nomeCompleto: string): string => {
-  if (!nomeCompleto) return "";
-  return nomeCompleto.trim().split(" ")[0];
-};
-
-/**
  * Componente de toggle reutilizável.
  * @param ativo - Estado atual do toggle.
  * @param onChange - Função chamada ao alternar.
  */
-const Toggle = ({ ativo, onChange }: { ativo: boolean; onChange: () => void }) => (
+const Toggle = ({
+  ativo,
+  onChange,
+}: {
+  ativo: boolean;
+  onChange: () => void;
+}) => (
   <button
     onClick={onChange}
     role="switch"
@@ -61,14 +57,11 @@ export function ConfiguracoesPage() {
   const navigate = useNavigate();
   const { usuario } = useApp();
 
-  const primeiroNome = extrairPrimeiroNome(usuario?.nome || "");
-
   const [modoContraste, setModoContraste] = useState(false);
   const [modoEscuro, setModoEscuro] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
-
       {/* HEADER DE FUNDO */}
       <div className="bg-slate-900 h-64 w-full relative rounded-b-[40px] shadow-lg">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-b-[40px]">
@@ -88,13 +81,12 @@ export function ConfiguracoesPage() {
       </div>
 
       <main className="max-w-md mx-auto px-6 space-y-6 -mt-24 relative z-20">
-
         {/* Card de perfil */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 p-6 flex items-center gap-4">
           <div className="w-16 h-16 rounded-full border-2 border-emerald-100 overflow-hidden bg-emerald-50 flex items-center justify-center flex-shrink-0">
             {usuario?.avatar ? (
-  <img
-    src={usuario.avatar}
+              <img
+                src={usuario.avatar}
                 alt="Avatar"
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover"
@@ -126,7 +118,10 @@ export function ConfiguracoesPage() {
                   Modo Contraste
                 </span>
               </div>
-              <Toggle ativo={modoContraste} onChange={() => setModoContraste(!modoContraste)} />
+              <Toggle
+                ativo={modoContraste}
+                onChange={() => setModoContraste(!modoContraste)}
+              />
             </div>
 
             <div className="flex items-center justify-between px-5 py-4">
@@ -136,7 +131,10 @@ export function ConfiguracoesPage() {
                   Modo Escuro
                 </span>
               </div>
-              <Toggle ativo={modoEscuro} onChange={() => setModoEscuro(!modoEscuro)} />
+              <Toggle
+                ativo={modoEscuro}
+                onChange={() => setModoEscuro(!modoEscuro)}
+              />
             </div>
           </div>
         </section>
@@ -168,7 +166,6 @@ export function ConfiguracoesPage() {
             </button>
           </div>
         </section>
-
       </main>
     </div>
   );

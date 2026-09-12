@@ -18,6 +18,12 @@ import {
   tratamentoServices,
 } from "@services";
 import { ProtocoloRequestApi, ExercicioInfoResponse } from "@interfaces";
+import { useApp } from "@contexts";
+import type {
+  PacienteVinculadoClinica,
+  TratamentoResponseApi,
+  ProfissionalVinculado,
+} from "@interfaces";
 
 interface ProtocoloFormInputs {
   nome: string;
@@ -57,7 +63,9 @@ export function ProtocolosFormPage() {
   const [exerciciosSelecionados, setExerciciosSelecionados] = useState<
     ExercicioInfoResponse[]
   >([]);
-  const [pacientesAtivos, setPacientesAtivos] = useState<any[]>([]);
+  const [pacientesAtivos, setPacientesAtivos] = useState<
+    PacienteVinculadoClinica[]
+  >([]);
   const [clinProfissionalIdReal, setClinProfissionalIdReal] = useState<
     string | null
   >(null);
@@ -66,98 +74,116 @@ export function ProtocolosFormPage() {
   const [novosPacientesVinculados, setNovosPacientesVinculados] = useState<
     NovoVinculoPaciente[]
   >([]);
-  const [tratamentosExistentes, setTratamentosExistentes] = useState<any[]>([]);
+  const [tratamentosExistentes, setTratamentosExistentes] = useState<
+    TratamentoResponseApi[]
+  >([]);
 
   const [buscaExercicio, setBuscaExercicio] = useState("");
   const [salvando, setSalvando] = useState(false);
-  const [carregandoDados, setCarregandoDados] = useState(false);
-
-  const clinPlanId = location.state?.clinPlanId || "";
-  const usuarioLocalString = localStorage.getItem("usuario");
-  const usuarioLocal = usuarioLocalString
-    ? JSON.parse(usuarioLocalString)
-    : null;
-  const profesionalId = usuarioLocal?.id;
-  const profissionalCrefito = usuarioLocal?.crefito;
-
-  useEffect(() => {
-    carregarDependencias();
-  }, [id, clinPlanId, profesionalId]);
 
   /**
-   * Carrega os exercícios disponíveis, os pacientes da clínica, o ID de vínculo do profissional
-   * e, se for edição, os tratamentos/pacientes já vinculados a este protocolo.
+   * Combinação de entradas já carregada. "Carregando" vira um valor
+   * derivado, então o efeito não precisa ligar a flag de forma síncrona —
+   * era isso que forçava uma renderização extra a cada troca de clínica ou
+   * de protocolo em edição.
    */
-  const carregarDependencias = async () => {
-    if (!profesionalId) return;
+  const [dadosDe, setDadosDe] = useState<string | null>(null);
 
-    setCarregandoDados(true);
-    try {
-      const promessas = [
-        exerciciosServices.buscarExerciciosDoProfissional(profesionalId),
-      ];
+  const { usuario } = useApp();
+  const clinPlanId = location.state?.clinPlanId || "";
+  // O usuário vem do contexto: a chave localStorage("usuario") nunca é
+  // gravada, então este bloco resolvia sempre para undefined.
+  const profesionalId = usuario?.id;
+  // Só o perfil profissional tem CREFITO; o `in` estreita a união.
+  const profissionalCrefito =
+    usuario && "crefito" in usuario ? usuario.crefito : undefined;
 
-      if (clinPlanId) {
-        promessas.push(
-          clinicasServices.carregarListaPacientesAtivos(clinPlanId),
-        );
-        promessas.push(clinicasServices.carregarListaProfissionais(clinPlanId));
-      }
+  const chaveCarga = `${id ?? ""}|${clinPlanId}|${profesionalId ?? ""}`;
+  const carregandoDados = Boolean(profesionalId) && dadosDe !== chaveCarga;
 
-      const resultados = await Promise.all(promessas);
+  /**
+   * Carrega os exercícios disponíveis, os pacientes da clínica, o ID de
+   * vínculo do profissional e, se for edição, os tratamentos/pacientes já
+   * vinculados a este protocolo.
+   *
+   * A função vive dentro do efeito: declarada fora, o React Compiler não
+   * conseguia provar que as atualizações de estado só acontecem depois do
+   * `await` e desistia de otimizar o componente inteiro.
+   */
+  useEffect(() => {
+    const carregarDependencias = async () => {
+      if (!profesionalId) return;
 
-      const todosExercicios = resultados[0];
-      setExerciciosDisponiveis(todosExercicios || []);
+      try {
+        // Uma espera por tipo de recurso. Antes as três promessas iam num
+        // mesmo array e o `Promise.all` devolvia uma tupla sem tipo, em que
+        // `resultados[1]` podia ser qualquer coisa.
+        const [todosExercicios, vinculos] = await Promise.all([
+          exerciciosServices.listarDoProfissional(),
+          clinPlanId
+            ? Promise.all([
+                clinicasServices.listarPacientes(clinPlanId),
+                clinicasServices.listarProfissionais(clinPlanId),
+              ])
+            : Promise.resolve(null),
+        ]);
 
-      let profissionalVinculoId = clinProfissionalIdReal;
+        setExerciciosDisponiveis(todosExercicios || []);
 
-      if (clinPlanId) {
-        const pacientes = resultados[1];
-        if (pacientes) setPacientesAtivos(pacientes);
+        let profissionalVinculoId = clinProfissionalIdReal;
 
-        const profissionais = resultados[2];
-        if (profissionais && profissionalCrefito) {
-          const meuVinculo = profissionais.find(
-            (p: any) => p.crefito === profissionalCrefito,
-          );
-          if (meuVinculo) {
-            profissionalVinculoId = meuVinculo.id;
-            setClinProfissionalIdReal(meuVinculo.id);
+        if (vinculos) {
+          const [pacientes, profissionais] = vinculos;
+          if (pacientes) setPacientesAtivos(pacientes);
+
+          if (profissionais && profissionalCrefito) {
+            const meuVinculo = profissionais.find(
+              (p) => p.crefito === profissionalCrefito,
+            );
+            if (meuVinculo) {
+              profissionalVinculoId = meuVinculo.id;
+              setClinProfissionalIdReal(meuVinculo.id);
+            }
           }
         }
-      }
 
-      // Se for edição, carregamos os dados do protocolo e os pacientes já vinculados
-      if (isEdicao && id) {
-        const protocolo = await protocolosServices.buscarPorId(id);
-        setValue("nome", protocolo.nome);
+        // Se for edição, carregamos os dados do protocolo e os pacientes já vinculados
+        if (isEdicao && id) {
+          const protocolo = await protocolosServices.buscarPorId(id);
+          setValue("nome", protocolo.nome);
 
-        if (protocolo.exercicioIds && protocolo.exercicioIds.length > 0) {
-          const selecionados = (todosExercicios || []).filter(
-            (ex: ExercicioInfoResponse) =>
-              protocolo.exercicioIds.includes(ex.id),
-          );
-          setExerciciosSelecionados(selecionados);
-        }
+          if (protocolo.exercicioIds && protocolo.exercicioIds.length > 0) {
+            const selecionados = (todosExercicios || []).filter(
+              (ex: ExercicioInfoResponse) =>
+                protocolo.exercicioIds.includes(ex.id),
+            );
+            setExerciciosSelecionados(selecionados);
+          }
 
-        // Busca tratamentos existentes deste profissional para filtrar os deste protocolo
-        if (profissionalVinculoId) {
-          const todosTratamentos =
-            await tratamentoServices.listarPorProfissional(
+          // Busca tratamentos existentes deste profissional para filtrar os deste protocolo
+          if (profissionalVinculoId) {
+            const todosTratamentos = await tratamentoServices.listarPorClinica(
               profissionalVinculoId,
             );
-          const filtrados = todosTratamentos.filter(
-            (t: any) => t.protocoloId === id,
-          );
-          setTratamentosExistentes(filtrados);
+            const filtrados = todosTratamentos.filter(
+              (t) => t.protocoloId === id,
+            );
+            setTratamentosExistentes(filtrados);
+          }
         }
+      } catch (error) {
+        console.error("Erro ao carregar dependências do formulário", error);
+      } finally {
+        setDadosDe(chaveCarga);
       }
-    } catch (error) {
-      console.error("Erro ao carregar dependências do formulário", error);
-    } finally {
-      setCarregandoDados(false);
-    }
-  };
+    };
+
+    void carregarDependencias();
+    // `chaveCarga` e os demais valores lidos derivam destas três entradas.
+    // `clinProfissionalIdReal` fica de fora de propósito: o próprio efeito o
+    // escreve, e incluí-lo faria a carga rodar duas vezes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, clinPlanId, profesionalId]);
 
   /**
    * Adiciona um paciente à lista de novos vínculos pendentes de salvamento.
@@ -294,15 +320,14 @@ export function ProtocolosFormPage() {
 
         const promessasVincular = novosPacientesVinculados.map(
           async (paciente) => {
-            const payloadTratamento = {
+            // Cria o tratamento para o paciente.
+            // A clínica é path param (POST /tratamento/{clinicaId}) e o
+            // profissional é resolvido pelo backend a partir do token.
+            const novoTratamento = await tratamentoServices.criar(clinPlanId, {
               clinPacienteId: paciente.id,
-              clinProfissionalId: clinProfissionalIdReal,
+              descricao: data.nome,
               inicio: paciente.dataInicio,
-              sequencia: 1,
-            };
-            // Cria o tratamento para o paciente
-            const novoTratamento =
-              await tratamentoServices.cadastrar(payloadTratamento);
+            });
             // Vincula o protocolo ao tratamento criado
             await tratamentoServices.definirProtocolo(
               novoTratamento.id,
@@ -545,9 +570,7 @@ export function ProtocolosFormPage() {
                     <p className="text-sm font-semibold text-slate-700 leading-tight truncate">
                       {ex.nome}
                     </p>
-                    <span className="text-xs text-slate-500">
-                      {ex.categoria}
-                    </span>
+                    <span className="text-xs text-slate-500">{ex.jogo}</span>
                   </div>
                   <button
                     type="button"
@@ -621,7 +644,7 @@ export function ProtocolosFormPage() {
         </div>
       </main>
 
-      <BottomBar tipo="profissional" ativo="protocolos" />
+      <BottomBar />
     </div>
   );
 }

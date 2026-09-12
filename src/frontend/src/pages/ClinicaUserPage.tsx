@@ -3,27 +3,51 @@ import { FaHospital, FaSearch } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { BottomBar } from "../components/BottomBar";
 import { clinicasServices } from "@services";
+import type { ClinicaVinculo } from "@interfaces";
 
-interface Clinica {
-  codigo: string;
-  nome: string;
-  maxProfissionais: number;
-  maxPacientes: number;
-  maxProtocolos: number;
-  maxExercicios: number;
-}
+/** Busca as clínicas do paciente, normalizando a resposta para um array. */
+const buscarMinhasClinicas = async (): Promise<ClinicaVinculo[]> => {
+  const response = await clinicasServices.buscarMinhasClinicas();
+  return Array.isArray(response) ? response : [];
+};
 
 export function ClinicaUserPage() {
-  const [clinicas, setClinicas] = useState<Clinica[]>([]);
+  const [clinicas, setClinicas] = useState<ClinicaVinculo[]>([]);
   const [termoBusca, setTermoBusca] = useState("");
-  const [carregando, setCarregando] = useState(false);
+  // Já nasce carregando: a tela busca as clínicas na montagem. Assim o
+  // efeito não precisa ligar a flag de forma síncrona, o que dispararia uma
+  // renderização em cascata antes mesmo da primeira pintura.
+  const [carregando, setCarregando] = useState(true);
   const navigate = useNavigate();
 
-  const buscarClinicas = async () => {
+  useEffect(() => {
+    // `cancelado` descarta a resposta se o usuário sair da tela antes de ela
+    // chegar — antes disso, a atualização caía num componente desmontado.
+    let cancelado = false;
+
+    buscarMinhasClinicas()
+      .then((lista) => {
+        if (!cancelado) setClinicas(lista);
+      })
+      .catch((error) => {
+        if (cancelado) return;
+        console.error("Erro ao buscar clínicas", error);
+        setClinicas([]);
+      })
+      .finally(() => {
+        if (!cancelado) setCarregando(false);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  /** Recarrega a lista a pedido do usuário (botão "Limpar Busca"). */
+  const recarregarClinicas = async () => {
     setCarregando(true);
     try {
-      const response = await clinicasServices.buscarClinicasDoPaciente();
-      setClinicas(Array.isArray(response) ? response : response.data || []);
+      setClinicas(await buscarMinhasClinicas());
     } catch (error) {
       console.error("Erro ao buscar clínicas", error);
       setClinicas([]);
@@ -31,10 +55,6 @@ export function ClinicaUserPage() {
       setCarregando(false);
     }
   };
-
-  useEffect(() => {
-    buscarClinicas();
-  }, []);
 
   const handleBuscarClinicaEspecifica = async () => {
     if (!termoBusca.trim()) {
@@ -44,7 +64,7 @@ export function ClinicaUserPage() {
 
     setCarregando(true);
     try {
-      const response = await clinicasServices.buscarClinicaPaciente(termoBusca);
+      const response = await clinicasServices.buscarPorTag(termoBusca);
       const clinicaEncontrada = response.data || response;
 
       if (clinicaEncontrada) {
@@ -104,7 +124,7 @@ export function ClinicaUserPage() {
               <button
                 onClick={() => {
                   setTermoBusca("");
-                  buscarClinicas();
+                  void recarregarClinicas();
                 }}
                 className="w-1/2 bg-white border border-slate-200 text-sm py-3 rounded-xl font-medium text-slate-600 hover:bg-slate-50 transition-colors"
               >
@@ -127,7 +147,7 @@ export function ClinicaUserPage() {
             clinicas.map((item) => (
               <div
                 key={item.codigo}
-                onClick={() => navigate(`/clinicaUser/${item.codigo}`)}
+                onClick={() => navigate(`/clinicas/user/${item.codigo}`)}
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group animate-in fade-in slide-in-from-bottom-2 cursor-pointer hover:border-emerald-500 transition-all"
               >
                 <div className="flex items-center gap-4">
@@ -147,7 +167,7 @@ export function ClinicaUserPage() {
         </section>
       </main>
 
-      <BottomBar tipo="profissional" ativo="clínica" />
+      <BottomBar />
     </div>
   );
 }

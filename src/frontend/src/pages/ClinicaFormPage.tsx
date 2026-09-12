@@ -12,7 +12,13 @@ import {
 import { RiHospitalLine } from "react-icons/ri";
 import { clinicasServices, assinaturaServices } from "@services";
 import { useApp } from "@contexts";
-import { ESTADOS_BR, ESPECIALIDADES } from "@utils";
+import {
+  ESPECIALIDADES,
+  ESTADOS_BR,
+  criarContainerVariants,
+  criarItemVariants,
+  mensagemDeErro,
+} from "@utils";
 
 interface ClinicaFormData {
   nome: string;
@@ -23,19 +29,8 @@ interface ClinicaFormData {
   cidade: string;
 }
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 12 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 26 },
-  },
-};
+const containerVariants = criarContainerVariants(0.06);
+const itemVariants = criarItemVariants(12);
 
 const ValidIcon = () => (
   <motion.div
@@ -146,12 +141,8 @@ export function ClinicaFormPage() {
       notificar("Clínica criada e plano vinculado com sucesso!", "sucesso");
       await refreshData();
       navigate("/inicio-profissional", { replace: true });
-    } catch (error: any) {
-      const msg = error.response?.data || "Erro ao processar a criação.";
-      notificar(
-        typeof msg === "string" ? msg : "Erro ao processar ativação.",
-        "erro",
-      );
+    } catch (error) {
+      notificar(mensagemDeErro(error, "Erro ao processar a criação."), "erro");
     } finally {
       setIsSubmitting(false);
     }

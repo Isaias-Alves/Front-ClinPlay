@@ -10,7 +10,7 @@ const useGoogleAuth = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const loginWithGoogle = (): void => {
-    const apiUrl = import.meta.env.VITE_API_URL || "https://clinplay-api.onrender.com";
+    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
     const googleAuthUrl = `${apiUrl}/auth/oauth2/google`;
 
     setIsLoading(true);

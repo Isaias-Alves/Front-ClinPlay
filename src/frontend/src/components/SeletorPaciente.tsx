@@ -2,25 +2,14 @@ import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiChevronDown, FiUser, FiCheck } from "react-icons/fi";
 
-import { Paciente } from "@interfaces";
-
-const formatarCPF = (v: string) => {
-  const d = (v || "").replace(/\D/g, "");
-  if (d.length !== 11) return v || "---";
-  return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-};
-
-// Como a listagem da clínica traz dados adicionais do vínculo (vinculoId),
-// extendemos a sua interface padrão temporariamente para não dar erro de tipagem.
-interface PacienteVinculo extends Paciente {
-  vinculoId?: string;
-  clinPacienteId?: string;
-  id?: string;
-  pacienteId?: string;
-}
+// O seletor recebe vínculos da clínica, não pacientes completos: antes
+// estendia `Paciente`, que exige `tipo`, `dataNascimento` e `criadoEm` —
+// campos que a listagem de vínculos não devolve.
+import type { PacienteVinculadoClinica } from "@interfaces";
+import { formatarCPF } from "@utils";
 
 interface SeletorPacienteProps {
-  pacientes: PacienteVinculo[];
+  pacientes: PacienteVinculadoClinica[];
   value: string;
   onChange: (id: string) => void;
   error?: string;
@@ -29,7 +18,7 @@ interface SeletorPacienteProps {
 // ----------------------------------------------------------------------
 // CORREÇÃO: Função extrai rigorosamente o ID do Vínculo em vez do Paciente
 // ----------------------------------------------------------------------
-const extrairId = (p: PacienteVinculo) =>
+const extrairId = (p: PacienteVinculadoClinica) =>
   p.vinculoId || p.clinPacienteId || p.id || "";
 
 export const SeletorPaciente: React.FC<SeletorPacienteProps> = ({

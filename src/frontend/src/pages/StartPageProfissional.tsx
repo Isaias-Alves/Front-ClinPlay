@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { Header, BuscarClinicaModal } from "@components";
-import { useApp } from "../contexts/AppContext";
-import { authServices, clinicasServices } from "@services";
-import { Client } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
+import { useApp } from "@contexts";
+import type {
+  ChavePermissao,
+  EventoSolicitacoes,
+  ExercicioInfoResponse,
+  PacienteVinculadoClinica,
+  PermissoesRequest,
+  ProfissionalVinculado,
+  SolicitacaoExercicio,
+  SolicitacaoPaciente,
+  SolicitacaoProfissional,
+  TratamentoResponseApi,
+} from "@interfaces";
+import { clinicasServices } from "@services";
 import {
   FiUsers,
   FiActivity,
@@ -28,29 +38,16 @@ import {
   FiSave,
   FiSearch,
 } from "react-icons/fi";
-import { FaDumbbell } from "react-icons/fa";
+import { useStompClient } from "@hooks";
+import type { IconType } from "react-icons";
+import { formatarCPF, formatarTelefone, mensagemDeErro } from "@utils";
 
-const WS_BASE_URL = "https://clinplay-api.onrender.com/ws";
-
-const getYoutubeThumbnail = (url?: string): string | null => {
-  if (!url) return null;
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  return match ? `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg` : null;
-};
-
-const formatarCPF = (v: string) => {
-  const d = (v || "").replace(/\D/g, "");
-  if (d.length !== 11) return v || "---";
-  return d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
-};
-
-const formatarTelefone = (v: string) => {
-  const d = (v || "").replace(/\D/g, "");
-  if (d.length === 11)
-    return d.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/, "($1) $2 $3-$4");
-  if (d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
-  return v || "---";
-};
+/** Item da grade de permissões de um profissional. */
+interface TogglePermissao {
+  key: ChavePermissao;
+  label: string;
+  Icon: IconType;
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -93,10 +90,20 @@ export function StartPageProfissional() {
     setClinicaSelecionadaId,
     tipoUsuario,
     notificar,
+    logout,
   } = useApp();
 
   const [isBuscaClinicaOpen, setIsBuscaClinicaOpen] = useState(false);
-  const [carregandoDados, setCarregandoDados] = useState(false);
+  /**
+   * Combinação de entradas já carregada no painel. "Carregando" vira valor
+   * derivado disso, então o efeito não precisa ligar a flag de forma
+   * síncrona — era o que forçava uma renderização extra a cada troca de
+   * clínica. O contador permite que ações do usuário peçam uma recarga.
+   */
+  const [painelCarregadoDe, setPainelCarregadoDe] = useState<string | null>(
+    null,
+  );
+  const [recargasPedidas, setRecargasPedidas] = useState(0);
 
   // Controle das abas e Swipe
   const [abaAtiva, setAbaAtiva] = useState<AbaId>("tratamentos");
@@ -116,15 +123,24 @@ export function StartPageProfissional() {
   const hasAnyAdminPower =
     isGestorProfissionais || isGestorPacientes || isGestorExercicios;
 
-  const meusTratamentos = clinicaAtual?.tratamentos || [];
-  const [meusExercicios, setMeusExercicios] = useState<any[]>([]);
-  const [pendentesProfissionais, setPendentesProfissionais] = useState<any[]>(
+  const meusTratamentos: TratamentoResponseApi[] =
+    clinicaAtual?.tratamentos ?? [];
+  const [meusExercicios, setMeusExercicios] = useState<ExercicioInfoResponse[]>(
     [],
   );
-  const [pendentesPacientes, setPendentesPacientes] = useState<any[]>([]);
-  const [pendentesExercicios, setPendentesExercicios] = useState<any[]>([]);
-  const [equipe, setEquipe] = useState<any[]>([]);
-  const [pacientesClinica, setPacientesClinica] = useState<any[]>([]);
+  const [pendentesProfissionais, setPendentesProfissionais] = useState<
+    SolicitacaoProfissional[]
+  >([]);
+  const [pendentesPacientes, setPendentesPacientes] = useState<
+    SolicitacaoPaciente[]
+  >([]);
+  const [pendentesExercicios, setPendentesExercicios] = useState<
+    SolicitacaoExercicio[]
+  >([]);
+  const [equipe, setEquipe] = useState<ProfissionalVinculado[]>([]);
+  const [pacientesClinica, setPacientesClinica] = useState<
+    PacienteVinculadoClinica[]
+  >([]);
   const [profissionalAbertoId, setProfissionalAbertoId] = useState<
     string | null
   >(null);
@@ -184,7 +200,10 @@ export function StartPageProfissional() {
     setAbaAtiva(novaAba);
   };
 
-  const handleDragEnd = (e: any, { offset, velocity }: any) => {
+  const handleDragEnd = (
+    _evento: MouseEvent | TouchEvent | PointerEvent,
+    { offset }: PanInfo,
+  ) => {
     const swipeThreshold = 50;
     if (offset.x < -swipeThreshold && currentIndex < abas.length - 1) {
       mudarAba(abas[currentIndex + 1].id);
@@ -193,111 +212,129 @@ export function StartPageProfissional() {
     }
   };
 
-  useEffect(() => {
-    const ids = abas.map((a) => a.id);
-    if (!ids.includes(abaAtiva)) setAbaAtiva("tratamentos");
+  // Se a aba ativa deixou de existir (o profissional perdeu uma permissão ou
+  // trocou de clínica), volta para a primeira. Ajustado durante a
+  // renderização, e não num efeito: assim a aba inválida nunca chega a ser
+  // pintada.
+  if (!abas.some((a) => a.id === abaAtiva)) {
+    setAbaAtiva("tratamentos");
+  }
+
+  // O painel de filtros fecha ao trocar de aba ou de clínica. Mesmo motivo:
+  // fechá-lo por efeito deixava o painel aberto por um quadro.
+  const contextoFiltro = `${clinicaSelecionadaId}|${abaAtiva}`;
+  const [contextoFiltroAnterior, setContextoFiltroAnterior] =
+    useState(contextoFiltro);
+
+  if (contextoFiltroAnterior !== contextoFiltro) {
+    setContextoFiltroAnterior(contextoFiltro);
     setFiltroAberto(false);
-  }, [clinicaSelecionadaId, isGestorPacientes, isGestorProfissionais]);
+  }
+
+  const chavePainel = `${clinicaSelecionadaId}|${hasAnyAdminPower}|${recargasPedidas}`;
+  const carregandoDados =
+    Boolean(clinicaSelecionadaId) && painelCarregadoDe !== chavePainel;
+
+  /** Pede uma nova leitura do painel após uma ação do usuário. */
+  const recarregarDashboard = () => setRecargasPedidas((n) => n + 1);
 
   useEffect(() => {
-    setFiltroAberto(false);
-  }, [abaAtiva]);
-
-  const carregarDashboard = async () => {
     if (!clinicaSelecionadaId) return;
-    setCarregandoDados(true);
-    try {
-      if (hasAnyAdminPower) {
-        const promises = [
-          clinicasServices.listarProfissionais(clinicaSelecionadaId),
-          clinicasServices.listarPacientes(clinicaSelecionadaId),
-          clinicasServices.listarExercicios(clinicaSelecionadaId),
-        ];
-        const [profissionaisAtivos, pacientesAtivos, exerciciosAtivos] =
-          await Promise.allSettled(promises);
-        if (profissionaisAtivos.status === "fulfilled")
-          setEquipe(profissionaisAtivos.value || []);
-        if (pacientesAtivos.status === "fulfilled")
-          setPacientesClinica(pacientesAtivos.value || []);
-        if (exerciciosAtivos.status === "fulfilled")
-          setMeusExercicios(exerciciosAtivos.value || []);
-      } else {
-        const exerciciosAtivos =
-          await clinicasServices.listarExercicios(clinicaSelecionadaId);
-        setMeusExercicios(exerciciosAtivos || []);
+
+    // `cancelado` impede que a resposta de uma clínica anterior sobrescreva
+    // o painel da clínica selecionada depois dela.
+    let cancelado = false;
+
+    // A função vive dentro do efeito para que o React Compiler consiga
+    // provar que as atualizações de estado só ocorrem depois do `await`.
+    const carregarDashboard = async () => {
+      try {
+        if (hasAnyAdminPower) {
+          const promises = [
+            clinicasServices.listarProfissionais(clinicaSelecionadaId),
+            clinicasServices.listarPacientes(clinicaSelecionadaId),
+            clinicasServices.listarExercicios(clinicaSelecionadaId),
+          ];
+          const [profissionaisAtivos, pacientesAtivos, exerciciosAtivos] =
+            await Promise.allSettled(promises);
+          if (cancelado) return;
+          if (profissionaisAtivos.status === "fulfilled")
+            setEquipe(profissionaisAtivos.value || []);
+          if (pacientesAtivos.status === "fulfilled")
+            setPacientesClinica(pacientesAtivos.value || []);
+          if (exerciciosAtivos.status === "fulfilled")
+            setMeusExercicios(exerciciosAtivos.value || []);
+        } else {
+          const exerciciosAtivos =
+            await clinicasServices.listarExercicios(clinicaSelecionadaId);
+          if (cancelado) return;
+          setMeusExercicios(exerciciosAtivos || []);
+        }
+      } catch (error) {
+        if (!cancelado) console.error("Erro ao carregar dashboard:", error);
+      } finally {
+        if (!cancelado) setPainelCarregadoDe(chavePainel);
       }
-    } catch (error) {
-      console.error("Erro ao carregar dashboard:", error);
-    } finally {
-      setCarregandoDados(false);
-    }
-  };
-
-  useEffect(() => {
-    carregarDashboard();
-  }, [clinicaSelecionadaId, hasAnyAdminPower]);
-
-  useEffect(() => {
-    if (!clinicaSelecionadaId || !hasAnyAdminPower) return;
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const client = new Client({
-      webSocketFactory: () => new SockJS(`${WS_BASE_URL}?token=${token}`),
-      reconnectDelay: 5000,
-      onConnect: () => {
-        client.subscribe(
-          `/user/queue/clinica/${clinicaSelecionadaId}/solicitacoes`,
-          (message) => {
-            const data = JSON.parse(message.body);
-            if (data.evento === "ESTADO_ATUAL") {
-              if (data.profissionais)
-                setPendentesProfissionais(data.profissionais);
-              if (data.pacientes) setPendentesPacientes(data.pacientes);
-              if (data.exercicios) setPendentesExercicios(data.exercicios);
-            } else if (data.evento === "SOLICITACAO_CRIADA") {
-              if (data.tipo === "PROFISSIONAL" && data.profissional)
-                setPendentesProfissionais((prev) => [
-                  ...prev,
-                  data.profissional,
-                ]);
-              else if (data.tipo === "PACIENTE" && data.paciente)
-                setPendentesPacientes((prev) => [...prev, data.paciente]);
-              else if (data.tipo === "EXERCICIO" && data.exercicio)
-                setPendentesExercicios((prev) => [...prev, data.exercicio]);
-            } else if (data.evento === "SOLICITACAO_RESPONDIDA") {
-              const id = data.solicitacaoId;
-              if (data.tipo === "PROFISSIONAL")
-                setPendentesProfissionais((prev) =>
-                  prev.filter((x) => x.id !== id),
-                );
-              else if (data.tipo === "PACIENTE")
-                setPendentesPacientes((prev) =>
-                  prev.filter((x) => x.id !== id),
-                );
-              else if (data.tipo === "EXERCICIO")
-                setPendentesExercicios((prev) =>
-                  prev.filter((x) => x.id !== id),
-                );
-            }
-          },
-        );
-        client.publish({
-          destination: `/app/solicitacoes/${clinicaSelecionadaId}`,
-          body: JSON.stringify({}),
-        });
-      },
-    });
-
-    client.activate();
-    return () => {
-      client.deactivate();
     };
-  }, [clinicaSelecionadaId, hasAnyAdminPower]);
 
-  const handleLogout = async () => {
-    await authServices.logout();
-    navigate("/");
+    void carregarDashboard();
+
+    return () => {
+      cancelado = true;
+    };
+    // `chavePainel` deriva exatamente destas três entradas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicaSelecionadaId, hasAnyAdminPower, recargasPedidas]);
+
+  useStompClient({
+    habilitado: Boolean(clinicaSelecionadaId) && hasAnyAdminPower,
+    aoConectar: ({ assinar, publicar }) => {
+      assinar<EventoSolicitacoes>(
+        `/user/queue/clinica/${clinicaSelecionadaId}/solicitacoes`,
+        (data) => {
+          if (data.evento === "ESTADO_ATUAL") {
+            if (data.profissionais)
+              setPendentesProfissionais(data.profissionais);
+            if (data.pacientes) setPendentesPacientes(data.pacientes);
+            if (data.exercicios) setPendentesExercicios(data.exercicios);
+            return;
+          }
+
+          if (data.evento === "SOLICITACAO_CRIADA") {
+            // Desestruturado para que o TypeScript mantenha o estreitamento
+            // dentro do callback de atualização do estado.
+            const { profissional, paciente, exercicio } = data;
+
+            if (data.tipo === "PROFISSIONAL" && profissional)
+              setPendentesProfissionais((prev) => [...prev, profissional]);
+            else if (data.tipo === "PACIENTE" && paciente)
+              setPendentesPacientes((prev) => [...prev, paciente]);
+            else if (data.tipo === "EXERCICIO" && exercicio)
+              setPendentesExercicios((prev) => [...prev, exercicio]);
+            return;
+          }
+
+          if (data.evento === "SOLICITACAO_RESPONDIDA") {
+            const remover = <T extends { id: string }>(prev: T[]): T[] =>
+              prev.filter((x) => x.id !== data.solicitacaoId);
+
+            if (data.tipo === "PROFISSIONAL")
+              setPendentesProfissionais(remover);
+            else if (data.tipo === "PACIENTE") setPendentesPacientes(remover);
+            else if (data.tipo === "EXERCICIO") setPendentesExercicios(remover);
+          }
+        },
+      );
+
+      publicar({
+        destination: `/app/solicitacoes/${clinicaSelecionadaId}`,
+        body: {},
+      });
+    },
+  });
+
+  const handleLogout = () => {
+    void logout();
   };
 
   const handleConfirmarResposta = async () => {
@@ -314,44 +351,33 @@ export function StartPageProfissional() {
       );
       setModalResposta(null);
       setTextoResposta("");
-      carregarDashboard();
-    } catch (error: any) {
-      const msgBackend = error.response?.data;
-      notificar(
-        typeof msgBackend === "string"
-          ? msgBackend
-          : "Ocorreu um erro na validação.",
-        "erro",
-      );
+      recarregarDashboard();
+    } catch (error) {
+      notificar(mensagemDeErro(error, "Ocorreu um erro na validação."), "erro");
     } finally {
       setProcessandoResposta(false);
     }
   };
 
-  const handleAtualizarPermissoes = async (prof: any) => {
+  const handleAtualizarPermissoes = async (prof: ProfissionalVinculado) => {
     if (!clinicaSelecionadaId) return;
     try {
       await clinicasServices.atualizarPermissoesProfissional(
         clinicaSelecionadaId,
         prof.profissionalId,
         {
-          adminClinica: prof.adminClinica,
-          adminExercicios: prof.adminExercicios,
-          adminPacientes: prof.adminPacientes,
-          adminProfissionais: prof.adminProfissionais,
+          // Permissão ausente no DTO significa não concedida.
+          adminClinica: prof.adminClinica ?? false,
+          adminExercicios: prof.adminExercicios ?? false,
+          adminPacientes: prof.adminPacientes ?? false,
+          adminProfissionais: prof.adminProfissionais ?? false,
         },
       );
       notificar("Permissões atualizadas com sucesso.", "sucesso");
       setProfissionalAbertoId(null);
-      carregarDashboard();
-    } catch (error: any) {
-      const msgBackend = error.response?.data;
-      notificar(
-        typeof msgBackend === "string"
-          ? msgBackend
-          : "Erro ao atualizar permissões.",
-        "erro",
-      );
+      recarregarDashboard();
+    } catch (error) {
+      notificar(mensagemDeErro(error, "Erro ao atualizar permissões."), "erro");
     }
   };
 
@@ -371,11 +397,8 @@ export function StartPageProfissional() {
         prev.filter((p) => p.profissionalId !== profissionalId),
       );
       setProfissionalAbertoId(null);
-    } catch (error: any) {
-      notificar(
-        error.response?.data || "Erro ao remover profissional.",
-        "erro",
-      );
+    } catch (error) {
+      notificar(mensagemDeErro(error, "Erro ao remover profissional."), "erro");
     }
   };
 
@@ -392,27 +415,22 @@ export function StartPageProfissional() {
       setPacientesClinica((prev) =>
         prev.filter((p) => p.pacienteId !== pacienteId),
       );
-    } catch (error: any) {
-      notificar(
-        error.response?.data || "Erro ao desvincular paciente.",
-        "erro",
-      );
+    } catch (error) {
+      notificar(mensagemDeErro(error, "Erro ao desvincular paciente."), "erro");
     }
   };
 
-  const handleVerPerfilPaciente = (paciente: any) => {
+  const handleVerPerfilPaciente = (paciente: PacienteVinculadoClinica) => {
     navigate(`/perfil/${paciente.pacienteId}`, {
       state: { usuario: paciente, tipo: "paciente" },
     });
   };
 
-  const hojeStr = new Date().toISOString().split("T")[0];
-
   const meuProfissionalId = equipe.find(
     (p) => p.email === usuario?.email,
   )?.profissionalId;
 
-  const podeExpandirAccordion = (prof: any): boolean => {
+  const podeExpandirAccordion = (prof: ProfissionalVinculado): boolean => {
     if (prof.dono) return false;
     if (meuProfissionalId && prof.profissionalId === meuProfissionalId)
       return false;
@@ -422,7 +440,7 @@ export function StartPageProfissional() {
     return false;
   };
 
-  const togglesPermissao = isSuperAdmin
+  const togglesPermissao: TogglePermissao[] = isSuperAdmin
     ? [
         { key: "adminClinica", label: "Administração Geral", Icon: FiShield },
         {
@@ -441,6 +459,22 @@ export function StartPageProfissional() {
         },
         { key: "adminPacientes", label: "Gerir Pacientes", Icon: FiUsers },
       ];
+
+  /**
+   * Alterna uma permissão de um profissional da equipe.
+   *
+   * Faz cópia do objeto alterado. A versão anterior copiava só o array e
+   * escrevia direto no profissional (`target[perm.key] = !target[perm.key]`),
+   * mutando o estado atual do React: a identidade do objeto não mudava, então
+   * qualquer filho memoizado continuava a exibir o valor antigo.
+   */
+  const alternarPermissao = (profissionalId: string, chave: ChavePermissao) => {
+    setEquipe((prev) =>
+      prev.map((p) =>
+        p.profissionalId === profissionalId ? { ...p, [chave]: !p[chave] } : p,
+      ),
+    );
+  };
 
   const especialidadesUnicas = Array.from(
     new Set(equipe.map((p) => p.especialidade).filter(Boolean)),
@@ -463,7 +497,7 @@ export function StartPageProfissional() {
   const pacientesFiltrados = pacientesClinica
     .filter((pac) => {
       const isEmTratamento = meusTratamentos.some(
-        (t: any) => t.pacienteId === pac.pacienteId && !t.fim,
+        (t) => t.pacienteId === pac.pacienteId && !t.fim,
       );
       if (filtroTratamento === "sim") return isEmTratamento;
       if (filtroTratamento === "nao") return !isEmTratamento;
@@ -478,7 +512,7 @@ export function StartPageProfissional() {
       );
     });
 
-  const tratamentosFiltrados = meusTratamentos.filter((t: any) => {
+  const tratamentosFiltrados = meusTratamentos.filter((t) => {
     const termo = buscaTratamentos.toLowerCase();
     return (
       !termo ||
@@ -508,7 +542,10 @@ export function StartPageProfissional() {
           onSelectClinica={setClinicaSelecionadaId}
           onNovaClinica={() => setIsBuscaClinicaOpen(true)}
           onCriarClinica={() => navigate("/planos")}
-          usuarioLogado={{ nome: usuario?.nome, avatarUrl: usuario?.avatar }}
+          usuarioLogado={{
+            nome: usuario?.nome,
+            avatarUrl: usuario?.avatar ?? undefined,
+          }}
           onNavigatePerfil={() => navigate("/perfil")}
           onNavigateConfiguracoes={() => navigate("/configuracoes")}
           onLogout={handleLogout}
@@ -695,7 +732,7 @@ export function StartPageProfissional() {
                               </div>
                             ) : (
                               <div className="space-y-2 p-2 pt-1">
-                                {tratamentosFiltrados.map((tratamento: any) => (
+                                {tratamentosFiltrados.map((tratamento) => (
                                   <div
                                     key={tratamento.id}
                                     onClick={() =>
@@ -708,58 +745,36 @@ export function StartPageProfissional() {
                                     }
                                     className="p-4 border border-slate-100 rounded-2xl flex items-center justify-between hover:border-emerald-200 hover:shadow-sm hover:bg-slate-50 transition-all cursor-pointer group"
                                   >
-                                    <div className="flex items-center gap-3 min-w-0 pr-3">
-                                      <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
-                                        {tratamento.pacienteAvatar ? (
-                                          <img
-                                            src={tratamento.pacienteAvatar}
-                                            alt={tratamento.pacienteNome}
-                                            className="w-full h-full object-cover"
-                                            referrerPolicy="no-referrer"
-                                          />
+                                    <div className="min-w-0 pr-3">
+                                      <h3 className="text-sm font-bold text-slate-700 truncate group-hover:text-emerald-600 transition-colors">
+                                        {tratamento.pacienteNome}
+                                      </h3>
+                                      <p className="text-[11px] text-slate-400 mt-1 truncate flex items-center gap-1.5 flex-wrap">
+                                        {tratamento.descricao ? (
+                                          <span className="uppercase tracking-widest text-emerald-500 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
+                                            {tratamento.descricao}
+                                          </span>
                                         ) : (
-                                          <FiUser className="text-slate-400" />
+                                          <span className="uppercase tracking-widest text-slate-400 font-bold bg-slate-100 px-2 py-0.5 rounded-md animate-pulse">
+                                            Sincronizando...
+                                          </span>
                                         )}
-                                      </div>
-                                      <div className="min-w-0">
-                                        <h3 className="text-sm font-bold text-slate-700 truncate group-hover:text-emerald-600 transition-colors">
-                                          {tratamento.pacienteNome}
-                                        </h3>
-                                        <p className="text-[11px] text-slate-400 mt-0.5 truncate flex items-center gap-1.5 flex-wrap">
-                                          {tratamento.descricao ? (
-                                            <span className="uppercase tracking-widest text-emerald-500 font-bold bg-emerald-50 px-2 py-0.5 rounded-md">
-                                              {tratamento.descricao}
-                                            </span>
-                                          ) : (
-                                            <span className="uppercase tracking-widest text-slate-300 font-bold">
-                                              Sem descrição
-                                            </span>
-                                          )}
-                                          {tratamento.profissionalNome && (
-                                            <span className="font-medium">
-                                              • Dr(a).{" "}
-                                              {tratamento.profissionalNome}
-                                            </span>
-                                          )}
-                                          {!!(
-                                            tratamento.fim &&
-                                            tratamento.fim.split("T")[0] <=
-                                              hojeStr
-                                          ) ? (
-                                            <span className="font-bold text-rose-500 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-md text-[10px] uppercase tracking-widest">
-                                              Finalizado
-                                            </span>
-                                          ) : typeof tratamento.progresso ===
-                                            "number" ? (
-                                            <span className="font-bold text-emerald-600">
-                                              •{" "}
-                                              {tratamento.progresso.toFixed(0)}%
-                                            </span>
-                                          ) : null}
-                                        </p>
-                                      </div>
+                                        {tratamento.profissionalNome && (
+                                          <span className="font-medium">
+                                            • Dr(a).{" "}
+                                            {tratamento.profissionalNome}
+                                          </span>
+                                        )}
+                                        {typeof tratamento.progresso ===
+                                          "number" && (
+                                          <span className="font-bold text-emerald-600">
+                                            • Progresso:{" "}
+                                            {tratamento.progresso.toFixed(0)}%
+                                          </span>
+                                        )}
+                                      </p>
                                     </div>
-                                    <div className="text-slate-300 group-hover:text-emerald-500 transition-colors shrink-0">
+                                    <div className="text-slate-300 group-hover:text-emerald-500 transition-colors">
                                       <FiUsers className="text-xl" />
                                     </div>
                                   </div>
@@ -827,71 +842,31 @@ export function StartPageProfissional() {
                               </div>
                             ) : (
                               <div className="space-y-2 p-2 pt-1">
-                                {exerciciosFiltrados.map((ex) => {
-                                  const thumbnail = getYoutubeThumbnail(ex.videoUrl);
-                                  return (
-                                    <div
-                                      key={ex.id}
-                                      onClick={() =>
-                                        navigate(`/exercicios/${ex.id}`, {
-                                          state: { exercicio: ex },
-                                        })
-                                      }
-                                      className="p-3 border border-slate-100 rounded-2xl flex items-center gap-3 hover:border-blue-200 hover:shadow-sm hover:bg-slate-50 transition-all cursor-pointer group"
-                                    >
-                                      {/* Miniatura do vídeo ou fallback */}
-                                      <div className="w-14 h-14 rounded-xl bg-slate-900 overflow-hidden flex items-center justify-center shrink-0 border border-slate-800">
-                                        {thumbnail ? (
-                                          <img
-                                            src={thumbnail}
-                                            alt={ex.nome}
-                                            className="w-full h-full object-cover"
-                                          />
-                                        ) : (
-                                          <FaDumbbell className="text-slate-500 text-xl" />
+                                {exerciciosFiltrados.map((ex) => (
+                                  <div
+                                    key={ex.id}
+                                    onClick={() =>
+                                      navigate(`/exercicios/${ex.id}`, {
+                                        state: { exercicio: ex },
+                                      })
+                                    }
+                                    className="p-3 border border-slate-100 rounded-2xl flex items-center justify-between hover:border-blue-200 hover:shadow-sm hover:bg-slate-50 transition-all cursor-pointer group"
+                                  >
+                                    <div className="min-w-0 pr-3">
+                                      <h3 className="text-sm font-bold text-slate-700 truncate group-hover:text-blue-600 transition-colors">
+                                        {ex.nome}
+                                      </h3>
+                                      <p className="text-[11px] text-slate-400 mt-0.5 truncate flex items-center gap-1">
+                                        <span className="uppercase tracking-widest text-emerald-500 font-bold">
+                                          {ex.jogo}
+                                        </span>
+                                        {ex.descricao && (
+                                          <span>• {ex.descricao}</span>
                                         )}
-                                      </div>
-
-                                      {/* Conteúdo */}
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                          <h3 className="text-sm font-bold text-slate-700 truncate group-hover:text-blue-600 transition-colors">
-                                            {ex.nome}
-                                          </h3>
-                                          {ex.jogo && (
-                                            <>
-                                              <span className="text-slate-300 shrink-0">—</span>
-                                              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest shrink-0">
-                                                {ex.jogo}
-                                              </span>
-                                            </>
-                                          )}
-                                        </div>
-                                        <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1 flex-wrap">
-                                          {ex.configPadrao && (
-                                            <>
-                                              <span className="font-bold text-slate-500">
-                                                {ex.configPadrao.series} séries
-                                              </span>
-                                              <span>×</span>
-                                              <span className="font-bold text-slate-500">
-                                                {ex.configPadrao.repeticoes} reps
-                                              </span>
-                                            </>
-                                          )}
-                                          {ex.descricao && (
-                                            <span className="truncate">
-                                              {ex.configPadrao ? " • " : ""}{ex.descricao}
-                                            </span>
-                                          )}
-                                        </p>
-                                      </div>
-
-                                      {/* Indicador de ação */}
-                                      <FiChevronRight className="text-slate-300 group-hover:text-blue-400 transition-colors shrink-0 text-lg" />
+                                      </p>
                                     </div>
-                                  );
-                                })}
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </>
@@ -1240,27 +1215,16 @@ export function StartPageProfissional() {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                           {togglesPermissao.map((perm) => {
                                             const isChecked =
-                                              (prof as any)[perm.key] || false;
+                                              prof[perm.key] ?? false;
                                             return (
                                               <div
                                                 key={perm.key}
-                                                onClick={() => {
-                                                  const atualizados = [
-                                                    ...equipe,
-                                                  ];
-                                                  const target =
-                                                    atualizados.find(
-                                                      (p) =>
-                                                        p.profissionalId ===
-                                                        prof.profissionalId,
-                                                    );
-                                                  if (target)
-                                                    (target as any)[perm.key] =
-                                                      !(target as any)[
-                                                        perm.key
-                                                      ];
-                                                  setEquipe(atualizados);
-                                                }}
+                                                onClick={() =>
+                                                  alternarPermissao(
+                                                    prof.profissionalId,
+                                                    perm.key,
+                                                  )
+                                                }
                                                 className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all text-[13px] font-semibold ${
                                                   isChecked
                                                     ? "bg-emerald-50/30 border-emerald-200"

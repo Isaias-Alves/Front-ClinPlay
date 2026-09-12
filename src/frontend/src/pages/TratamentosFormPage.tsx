@@ -15,6 +15,8 @@ import { useApp } from "@contexts";
 import { clinicasServices } from "@services";
 import { tratamentoServices } from "../services/tratamentoServices"; // Ajuste o caminho se necessário
 import { SeletorPaciente } from "@components"; // Import do novo componente criado!
+import { mensagemDeErro } from "@utils";
+import type { PacienteVinculadoClinica } from "@interfaces";
 
 interface TratamentoFormData {
   clinPacienteId: string;
@@ -31,7 +33,7 @@ export function TratamentosFormPage() {
   const navigate = useNavigate();
   const { clinicaSelecionadaId, notificar, refreshData } = useApp();
 
-  const [pacientes, setPacientes] = useState<any[]>([]);
+  const [pacientes, setPacientes] = useState<PacienteVinculadoClinica[]>([]);
   const [carregandoPacientes, setCarregandoPacientes] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -100,9 +102,8 @@ export function TratamentosFormPage() {
       notificar("Tratamento iniciado com sucesso!", "sucesso");
       await refreshData();
       navigate("/inicio-profissional");
-    } catch (error: any) {
-      const msg = error.response?.data || "Erro ao criar tratamento.";
-      notificar(typeof msg === "string" ? msg : "Erro no cadastro.", "erro");
+    } catch (error) {
+      notificar(mensagemDeErro(error, "Erro ao criar tratamento."), "erro");
     } finally {
       setIsSubmitting(false);
     }

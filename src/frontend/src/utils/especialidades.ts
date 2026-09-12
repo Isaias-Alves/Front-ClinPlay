@@ -16,7 +16,7 @@ export const ESPECIALIDADES = [
   "Fisioterapia Neurofuncional",
   "Fisioterapia Respiratória",
   "Fisioterapia Traumato-Ortopédica",
-  "Outras Fisioterapias"
+  "Outras Fisioterapias",
 ] as const;
 
 export type Especialidade = (typeof ESPECIALIDADES)[number];

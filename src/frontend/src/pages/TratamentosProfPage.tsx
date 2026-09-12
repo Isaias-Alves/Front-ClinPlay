@@ -3,27 +3,46 @@ import { useNavigate } from "react-router-dom";
 import { FaDumbbell, FaTrash, FaPlus, FaPen, FaYoutube } from "react-icons/fa";
 import { BottomBar } from "../components/BottomBar";
 import { exerciciosServices } from "@services";
-import { Exercicio } from "@interfaces";
+import { ExercicioInfoResponse } from "@interfaces";
+
+/** Lista os exercícios do profissional, normalizando a resposta para um array. */
+const buscarExercicios = async (): Promise<ExercicioInfoResponse[]> => {
+  const response = await exerciciosServices.listarDoProfissional();
+  return Array.isArray(response) ? response : response.data || [];
+};
 
 export function TratamentosProfPage() {
-  const [exercicios, setExercicios] = useState<Exercicio[]>([]);
-  const [carregando, setCarregando] = useState(false);
+  const [exercicios, setExercicios] = useState<ExercicioInfoResponse[]>([]);
+  // Já nasce carregando: a lista é buscada na montagem.
+  const [carregando, setCarregando] = useState(true);
   const navigate = useNavigate();
 
-  const carregarExercicios = async () => {
+  useEffect(() => {
+    let cancelado = false;
+
+    buscarExercicios()
+      .then((lista) => {
+        if (!cancelado) setExercicios(lista);
+      })
+      .catch((error) => {
+        if (cancelado) return;
+        console.error("Erro ao buscar exercícios", error);
+        setExercicios([]);
+      })
+      .finally(() => {
+        if (!cancelado) setCarregando(false);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  /** Recarrega a lista a pedido do usuário (após excluir, por exemplo). */
+  const recarregarExercicios = async () => {
     setCarregando(true);
     try {
-      const usuarioLocal = localStorage.getItem("usuario");
-      const usuarioId = usuarioLocal ? JSON.parse(usuarioLocal).id : null;
-
-      if (!usuarioId) {
-        console.warn("Usuário não identificado.");
-        return;
-      }
-
-      const response =
-        await exerciciosServices.buscarExerciciosDoProfissional(usuarioId);
-      setExercicios(Array.isArray(response) ? response : response.data || []);
+      setExercicios(await buscarExercicios());
     } catch (error) {
       console.error("Erro ao buscar exercícios", error);
       setExercicios([]);
@@ -32,16 +51,12 @@ export function TratamentosProfPage() {
     }
   };
 
-  useEffect(() => {
-    carregarExercicios();
-  }, []);
-
   const deletarExercicio = async (id: string) => {
     if (!window.confirm("Deseja realmente remover este exercício?")) return;
     try {
-      await exerciciosServices.deletarExercicio(id);
+      await exerciciosServices.deletar(id);
       alert("Exercício deletado com sucesso!");
-      carregarExercicios();
+      await recarregarExercicios();
     } catch (error) {
       console.error("Erro ao deletar exercício", error);
     }
@@ -84,7 +99,7 @@ export function TratamentosProfPage() {
               </p>
             </div>
           ) : (
-            exercicios.map((item: any) => (
+            exercicios.map((item) => (
               <div
                 key={item.id}
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group animate-in fade-in slide-in-from-bottom-2 hover:border-emerald-500 transition-all"
@@ -96,14 +111,14 @@ export function TratamentosProfPage() {
                   <div>
                     <h3 className="font-bold text-slate-700">{item.nome}</h3>
                     <p className="text-xs text-slate-400">
-                      Categoria: {item.categoria || "---"}
+                      Motor: {item.jogo || "---"}
                     </p>
                     <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                       {item.descricao}
                     </p>
-                    {item.url_video && (
+                    {(item.videoUrl ?? item.url_video) && (
                       <a
-                        href={item.url_video}
+                        href={item.videoUrl ?? item.url_video}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-red-600 hover:underline flex items-center gap-1 mt-1 font-medium"
@@ -116,7 +131,11 @@ export function TratamentosProfPage() {
 
                 <div className="flex items-center gap-1">
                   <button
-                    onClick={() => navigate(`/tratamentos/detalhes/${item.id}`)}
+                    onClick={() =>
+                      navigate(`/exercicios/${item.id}`, {
+                        state: { exercicio: item },
+                      })
+                    }
                     className="p-3 text-slate-300 hover:text-emerald-600 rounded-xl transition-all"
                   >
                     <FaPen />
@@ -134,7 +153,7 @@ export function TratamentosProfPage() {
         </section>
       </main>
 
-      <BottomBar tipo="profissional" ativo="tratamentos" />
+      <BottomBar />
     </div>
   );
 }

@@ -12,12 +12,77 @@ import {
 import { RiHospitalLine } from "react-icons/ri";
 import { clinicasServices } from "@services";
 import { useApp } from "@contexts";
-import { ESPECIALIDADES } from "@utils";
+import { ESPECIALIDADES, mensagemDeErro } from "@utils";
 
 interface BuscarClinicaModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+/**
+ * Clínica como aparece na busca pública (`GET /clinica`). É um recorte
+ * menor que `ClinicaVinculo`: aqui o usuário ainda não tem vínculo.
+ */
+export interface ClinicaBusca {
+  id: string;
+  nome: string;
+  codigo?: string;
+  tag?: string;
+  especialidade?: string;
+  uf?: string;
+  cidade?: string;
+}
+
+/** Uma página de resultados da busca de clínicas. */
+interface PaginaClinicas {
+  itens: ClinicaBusca[];
+  temMais: boolean;
+}
+
+/**
+ * Busca clínicas por nome/especialidade ou, quando o termo começa com "@",
+ * pelo código exato da clínica (nesse caso não há paginação).
+ */
+const buscarPagina = async (
+  busca: string,
+  especialidade: string | null,
+  pagina: number,
+): Promise<PaginaClinicas> => {
+  const termo = busca.trim();
+
+  if (termo.startsWith("@")) {
+    const response = await clinicasServices.buscarPorTag(termo);
+    const itens = response.content
+      ? response.content
+      : Array.isArray(response)
+        ? response
+        : [response];
+    return { itens, temMais: false };
+  }
+
+  const response = await clinicasServices.listar({
+    nome: termo || undefined,
+    especialidade: especialidade || undefined,
+    page: pagina,
+    size: 10,
+  });
+
+  const dados = Array.isArray(response)
+    ? response
+    : response?.content || response?.data || [];
+  const itens = Array.isArray(dados) ? dados : [];
+
+  return { itens, temMais: itens.length >= 10 };
+};
+
+/** Acrescenta só os itens ainda ausentes, preservando a ordem. */
+const mesclarSemRepetir = (
+  atuais: ClinicaBusca[],
+  novos: ClinicaBusca[],
+): ClinicaBusca[] => {
+  const existentes = new Set(atuais.map((c) => c.id));
+  return [...atuais, ...novos.filter((c) => !existentes.has(c.id))];
+};
 
 export function BuscarClinicaModal({
   isOpen,
@@ -26,109 +91,96 @@ export function BuscarClinicaModal({
   const { tipoUsuario, notificar } = useApp();
 
   const [busca, setBusca] = useState("");
-  const [clinicas, setClinicas] = useState<any[]>([]);
+  const [clinicas, setClinicas] = useState<ClinicaBusca[]>([]);
   const [pagina, setPagina] = useState(0);
-  const [carregando, setCarregando] = useState(false);
   const [temMais, setTemMais] = useState(false);
+
+  /**
+   * Consulta cujo resultado já está em `clinicas`. "Carregando" vira valor
+   * derivado disso: não existe mais um `setCarregando(true)` síncrono dentro
+   * do efeito, e o spinner aparece já durante o debounce da digitação.
+   */
+  const [carregadoDe, setCarregadoDe] = useState<string | null>(null);
 
   const [filtroEspecialidade, setFiltroEspecialidade] = useState<string | null>(
     null,
   );
 
   // Guarda o objeto da clínica selecionada para exibir na tela de confirmação (Slider)
-  const [clinicaConfirmacao, setClinicaConfirmacao] = useState<any | null>(
-    null,
-  );
+  const [clinicaConfirmacao, setClinicaConfirmacao] =
+    useState<ClinicaBusca | null>(null);
 
-  const buscarClinicas = async (reset = false) => {
-    setCarregando(true);
-    try {
-      const pageNum = reset ? 0 : pagina;
-      const isTag = busca.trim().startsWith("@");
-      const termo = isTag ? busca.trim() : busca.trim();
+  const criterio = `${busca}|${filtroEspecialidade ?? ""}`;
+  const chaveBusca = `${criterio}|${pagina}`;
+  const carregando = isOpen && carregadoDe !== chaveBusca;
 
-      if (isTag) {
-        const response = await clinicasServices.buscarPorTag(termo);
-        const data = response.content
-          ? response.content
-          : Array.isArray(response)
-            ? response
-            : [response];
-        const clinicasArray = data;
-
-        if (reset) {
-          setClinicas(clinicasArray);
-        } else {
-          setClinicas((prev) => {
-            const existentes = new Set(prev.map((c) => c.id));
-            const novos = clinicasArray.filter(
-              (c: any) => !existentes.has(c.id),
-            );
-            return [...prev, ...novos];
-          });
-        }
-        setTemMais(false);
-      } else {
-        const params = {
-          nome: termo ? termo : undefined,
-          especialidade: filtroEspecialidade || undefined,
-          page: pageNum,
-          size: 10,
-        };
-
-        const response = await clinicasServices.listar(params);
-        const dadosNovos = Array.isArray(response)
-          ? response
-          : response?.content || response?.data || [];
-        const clinicasArray = Array.isArray(dadosNovos) ? dadosNovos : [];
-
-        if (reset) {
-          setClinicas(clinicasArray);
-        } else {
-          setClinicas((prev) => {
-            const existentes = new Set(prev.map((c) => c.id));
-            const novos = clinicasArray.filter(
-              (c: any) => !existentes.has(c.id),
-            );
-            return [...prev, ...novos];
-          });
-        }
-        setTemMais(clinicasArray.length >= 10);
-      }
-    } catch (error) {
-      if (reset) setClinicas([]);
-      setTemMais(false);
-    } finally {
-      setCarregando(false);
-    }
-  };
-
-  useEffect(() => {
+  // Limpa tudo ao fechar o modal. Ajustado durante a renderização, e não num
+  // efeito: por efeito, a busca anterior reaparecia por um quadro ao reabrir.
+  const [estavaAberto, setEstavaAberto] = useState(isOpen);
+  if (estavaAberto !== isOpen) {
+    setEstavaAberto(isOpen);
     if (!isOpen) {
       setBusca("");
       setClinicas([]);
       setFiltroEspecialidade(null);
       setClinicaConfirmacao(null);
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
       setPagina(0);
-      buscarClinicas(true);
-    }, 600);
+      setTemMais(false);
+      setCarregadoDe(null);
+    }
+  }
 
-    return () => clearTimeout(timeoutId);
-  }, [busca, filtroEspecialidade, isOpen]);
+  // Trocar o termo ou o filtro volta para a primeira página — senão a nova
+  // busca começaria na página em que a anterior tinha parado.
+  const [criterioAnterior, setCriterioAnterior] = useState(criterio);
+  if (criterioAnterior !== criterio) {
+    setCriterioAnterior(criterio);
+    setPagina(0);
+  }
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // `cancelado` descarta respostas fora de ordem: sem isso, uma busca
+    // lenta antiga sobrescrevia o resultado da busca mais recente.
+    let cancelado = false;
+
+    // Debounce só na primeira página (digitação). "Carregar mais" é um
+    // toque explícito e dispara de imediato.
+    const atraso = pagina === 0 ? 600 : 0;
+
+    const temporizador = setTimeout(async () => {
+      try {
+        const { itens, temMais: ha } = await buscarPagina(
+          busca,
+          filtroEspecialidade,
+          pagina,
+        );
+        if (cancelado) return;
+        setClinicas((prev) =>
+          pagina === 0 ? itens : mesclarSemRepetir(prev, itens),
+        );
+        setTemMais(ha);
+      } catch {
+        if (cancelado) return;
+        if (pagina === 0) setClinicas([]);
+        setTemMais(false);
+      } finally {
+        if (!cancelado) setCarregadoDe(chaveBusca);
+      }
+    }, atraso);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(temporizador);
+    };
+    // `chaveBusca` deriva exatamente destas entradas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, busca, filtroEspecialidade, pagina]);
 
   const handleCarregarMais = () => {
     setPagina((prev) => prev + 1);
   };
-
-  useEffect(() => {
-    if (pagina > 0) {
-      buscarClinicas(false);
-    }
-  }, [pagina]);
 
   const solicitarVinculo = async () => {
     if (!tipoUsuario) {
@@ -137,20 +189,25 @@ export function BuscarClinicaModal({
     }
     if (!clinicaConfirmacao) return;
 
+    // A solicitação é feita pelo código da clínica; `tag` e `codigo` são o
+    // mesmo dado com nomes diferentes conforme o endpoint que a devolveu.
+    const codigo = clinicaConfirmacao.tag ?? clinicaConfirmacao.codigo;
+    if (!codigo) {
+      notificar("Clínica sem código de vínculo.", "erro");
+      return;
+    }
+
     try {
       if (tipoUsuario === "paciente") {
-        await clinicasServices.solicitarVinculoPaciente(clinicaConfirmacao.tag);
+        await clinicasServices.solicitarVinculoPaciente(codigo);
       } else {
-        await clinicasServices.solicitarVinculoProfissional(
-          clinicaConfirmacao.tag,
-        );
+        await clinicasServices.solicitarVinculoProfissional(codigo);
       }
       notificar("Solicitação enviada com sucesso!", "sucesso");
       setClinicaConfirmacao(null);
       onClose();
-    } catch (error: any) {
-      const msg = error.response?.data || "Erro ao solicitar vínculo.";
-      notificar(typeof msg === "string" ? msg : "Erro desconhecido.", "erro");
+    } catch (error) {
+      notificar(mensagemDeErro(error, "Erro ao solicitar vínculo."), "erro");
     }
   };
 

@@ -1,274 +1,218 @@
-import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppProvider } from "./contexts/AppContext";
-import LoginPage from "./pages/LoginPage";
-import CadastroPage from "./pages/CadastroPage";
-import OAuthSetup from "./pages/OAuthSetup";
-import { OAuthCallback } from "./pages/OAuthCallback";
-import { DebugAwaitPage } from "./pages/DebugAwaitPage";
+import { lazy, Suspense } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AppProvider, useApp } from "@contexts";
+import { LogotipoClinPlay } from "@components";
 import RouteGuard from "./components/RouteGuard";
-import { StartPagePaciente } from "./pages/StartPagePaciente";
-import { StartPageProfissional } from "./pages/StartPageProfissional";
-import { ClinicaPage } from "./pages/ClinicaPage";
-import { ClinicaUserPage } from "./pages/ClinicaUserPage";
-import { ClinicaDetalhesPage } from "./pages/ClinicaDetalhesPage";
-import { ClinicaUserDetalhesPage } from "./pages/ClinicaUserDetalhes";
-import { TratamentosProfPage } from "./pages/TratamentosProfPage";
-import { TratamentosFormPage } from "./pages/TratamentosFormPage";
-import { TratamentoSalaPage } from "./pages/TratamentoSalaPage";
-import { ExercicioDetalhesPage } from "./pages/ExercicioDetalhesPage";
-import { ClinicaFormPage } from "./pages/ClinicaFormPage";
-import { ConfiguracoesPage } from "./pages/ConfiguracoesPage";
 
-// IMPORTAÇÃO DA NOVA PÁGINA UNIFICADA DE PERFIL
-import { PerfilPage } from "./pages/PerfilPage";
-import { PerfilEditarPage } from "./pages/PerfilEditarPage";
-import { PerfilExcluirPage } from "./pages/PerfilExcluirPage";
+// Code splitting por rota: o bundle único passava de 890 kB, o que é caro
+// numa aplicação mobile-first usada em rede móvel.
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const CadastroPage = lazy(() => import("./pages/CadastroPage"));
+const OAuthSetup = lazy(() => import("./pages/OAuthSetup"));
+const OAuthCallback = lazy(() => import("./pages/OAuthCallback"));
+const DebugAwaitPage = lazy(() => import("./pages/DebugAwaitPage"));
+const StartPagePaciente = lazy(() => import("./pages/StartPagePaciente"));
+const StartPageProfissional = lazy(
+  () => import("./pages/StartPageProfissional"),
+);
+const PlanosPage = lazy(() => import("./pages/PlanosPage"));
+const ClinicaPage = lazy(() => import("./pages/ClinicaPage"));
+const ClinicaUserPage = lazy(() => import("./pages/ClinicaUserPage"));
+const ClinicaDetalhesPage = lazy(() => import("./pages/ClinicaDetalhesPage"));
+const ClinicaUserDetalhesPage = lazy(
+  () => import("./pages/ClinicaUserDetalhes"),
+);
+const ClinicaFormPage = lazy(() => import("./pages/ClinicaFormPage"));
+const TratamentosProfPage = lazy(() => import("./pages/TratamentosProfPage"));
+const TratamentosFormPage = lazy(() => import("./pages/TratamentosFormPage"));
+const TratamentoSalaPage = lazy(() => import("./pages/TratamentoSalaPage"));
+const ExercicioDetalhesPage = lazy(
+  () => import("./pages/ExercicioDetalhesPage"),
+);
+const ExercicioFormPage = lazy(() => import("./pages/ExercicioFormPage"));
+const ExercicioJogarPage = lazy(() => import("./pages/ExercicioJogarPage"));
+const JogosPage = lazy(() => import("./pages/JogosPage"));
+const ConfiguracoesPage = lazy(() => import("./pages/ConfiguracoesPage"));
+const PerfilPage = lazy(() => import("./pages/PerfilPage"));
+const PerfilEditarPage = lazy(() => import("./pages/PerfilEditarPage"));
+const PerfilExcluirPage = lazy(() => import("./pages/PerfilExcluirPage"));
+const ProtocolosPage = lazy(() => import("./pages/ProtocolosPage"));
+const ProtocolosFormPage = lazy(() => import("./pages/ProtocolosFormPage"));
+const ProtocoloDetalhesPage = lazy(
+  () => import("./pages/ProtocoloDetalhesPage"),
+);
+const MeusProtocolosPage = lazy(() => import("./pages/MeusProtocolosPage"));
 
-import { ProtocolosPage } from "./pages/ProtocolosPage";
-import { ProtocolosFormPage } from "./pages/ProtocolosFormPage";
-import { ProtocoloDetalhesPage } from "./pages/ProtocoloDetalhesPage";
-import { MeusProtocolosPage } from "./pages/MeusProtocolosPage";
-import { PlanosPage } from "./pages/PlanosPage";
-import { JogosPage } from "./pages/JogosPage";
-import { ExercicioFormPage } from "./pages/ExercicioFormPage";
-import { ExercicioJogarPage } from "./pages/ExercicioJogarPage";
+type Perfil = "paciente" | "profissional" | "ambos";
+
+interface RotaPrivada {
+  path: string;
+  perfil: Perfil;
+  element: React.ReactElement;
+}
+
+const ROTAS_PUBLICAS: Array<{ path: string; element: React.ReactElement }> = [
+  { path: "/", element: <LoginPage /> },
+  { path: "/cadastro", element: <CadastroPage /> },
+  { path: "/oauth/setup", element: <OAuthSetup /> },
+  { path: "/oauth/callback", element: <OAuthCallback /> },
+  { path: "/debug", element: <DebugAwaitPage /> },
+];
+
+/**
+ * Tabela única de rotas protegidas. Antes cada rota repetia o mesmo bloco
+ * `<Route element={<RouteGuard tipoPermitido=... element=... />} />`,
+ * o que já tinha deixado `/perfil/editar` e `/perfil/excluir` sem guarda.
+ */
+const ROTAS_PRIVADAS: RotaPrivada[] = [
+  // Painéis iniciais
+  { path: "/inicio", perfil: "paciente", element: <StartPagePaciente /> },
+  {
+    path: "/inicio-profissional",
+    perfil: "profissional",
+    element: <StartPageProfissional />,
+  },
+
+  // Planos e clínicas
+  { path: "/planos", perfil: "profissional", element: <PlanosPage /> },
+  { path: "/clinicas", perfil: "profissional", element: <ClinicaPage /> },
+  { path: "/clinicas/user", perfil: "paciente", element: <ClinicaUserPage /> },
+  {
+    path: "/clinicas/:id",
+    perfil: "profissional",
+    element: <ClinicaDetalhesPage />,
+  },
+  {
+    path: "/clinicas/user/:codigo",
+    perfil: "paciente",
+    element: <ClinicaUserDetalhesPage />,
+  },
+  {
+    path: "/clinicas/formulario",
+    perfil: "profissional",
+    element: <ClinicaFormPage />,
+  },
+
+  // Tratamentos
+  {
+    path: "/tratamentos",
+    perfil: "profissional",
+    element: <TratamentosProfPage />,
+  },
+  {
+    path: "/tratamentos/formulario",
+    perfil: "profissional",
+    element: <TratamentosFormPage />,
+  },
+  {
+    path: "/tratamentos/formulario/:id",
+    perfil: "profissional",
+    element: <TratamentosFormPage />,
+  },
+  {
+    path: "/tratamentos/sala/:id",
+    perfil: "profissional",
+    element: <TratamentoSalaPage />,
+  },
+
+  // Exercícios e minigames
+  {
+    path: "/exercicio/:id/jogar/:jogo",
+    perfil: "paciente",
+    element: <ExercicioJogarPage />,
+  },
+  {
+    path: "/clinica/:clinicaId/jogos",
+    perfil: "profissional",
+    element: <JogosPage />,
+  },
+  {
+    path: "/clinica/:clinicaId/exercicios/novo",
+    perfil: "profissional",
+    element: <ExercicioFormPage />,
+  },
+  {
+    path: "/exercicios/:id",
+    perfil: "profissional",
+    element: <ExercicioDetalhesPage />,
+  },
+
+  // Conta
+  { path: "/configuracoes", perfil: "ambos", element: <ConfiguracoesPage /> },
+  { path: "/perfil", perfil: "ambos", element: <PerfilPage /> },
+  { path: "/perfil/:id", perfil: "ambos", element: <PerfilPage /> },
+  { path: "/perfil/editar", perfil: "ambos", element: <PerfilEditarPage /> },
+  { path: "/perfil/excluir", perfil: "ambos", element: <PerfilExcluirPage /> },
+
+  // Protocolos
+  { path: "/protocolos", perfil: "profissional", element: <ProtocolosPage /> },
+  {
+    path: "/protocolos/formulario",
+    perfil: "profissional",
+    element: <ProtocolosFormPage />,
+  },
+  {
+    path: "/protocolos/formulario/:id",
+    perfil: "profissional",
+    element: <ProtocolosFormPage />,
+  },
+  {
+    path: "/protocolos/:id",
+    perfil: "profissional",
+    element: <ProtocoloDetalhesPage />,
+  },
+  { path: "/missoes", perfil: "paciente", element: <MeusProtocolosPage /> },
+];
+
+/**
+ * Qualquer URL desconhecida devolve o usuário ao painel do seu perfil (ou ao
+ * login). Sem esta rota, um link errado — ou um item da BottomBar apontando
+ * para uma rota inexistente — renderizava uma tela em branco sem saída.
+ */
+const RotaInexistente = () => {
+  const { tipoUsuario } = useApp();
+
+  const destino =
+    tipoUsuario === "profissional"
+      ? "/inicio-profissional"
+      : tipoUsuario === "paciente"
+        ? "/inicio"
+        : "/";
+
+  return <Navigate to={destino} replace />;
+};
+
+const TelaDeCarregamento = () => (
+  <div className="flex flex-col items-center justify-center min-h-dvh bg-slate-50">
+    <LogotipoClinPlay mt="mt-0" mb="mb-0" />
+    <div className="w-10 h-10 mt-6 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 function App() {
   return (
     <BrowserRouter>
-      {/* O AppProvider DEVE ficar aqui: Dentro do Router, mas envolvendo todas as rotas! */}
+      {/* O AppProvider fica dentro do Router, mas envolvendo todas as rotas. */}
       <AppProvider>
-        <Routes>
-          {/* Rotas Públicas */}
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/cadastro" element={<CadastroPage />} />
-          <Route path="/oauth/setup" element={<OAuthSetup />} />
-          <Route path="/oauth/callback" element={<OAuthCallback />} />
-          <Route path="/debug" element={<DebugAwaitPage />} />
+        <Suspense fallback={<TelaDeCarregamento />}>
+          <Routes>
+            {ROTAS_PUBLICAS.map(({ path, element }) => (
+              <Route key={path} path={path} element={element} />
+            ))}
 
-          {/* Rotas Privadas (Protegidas) */}
-          <Route
-            path="/inicio"
-            element={
-              <RouteGuard
-                tipoPermitido="paciente"
-                element={<StartPagePaciente />}
+            {ROTAS_PRIVADAS.map(({ path, perfil, element }) => (
+              <Route
+                key={path}
+                path={path}
+                element={
+                  <RouteGuard tipoPermitido={perfil} element={element} />
+                }
               />
-            }
-          />
-          <Route
-            path="/inicio-profissional"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<StartPageProfissional />}
-              />
-            }
-          />
+            ))}
 
-          <Route
-            path="/planos"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<PlanosPage />}
-              />
-            }
-          />
-
-          <Route
-            path="/clinicas"
-            element={
-              <RouteGuard tipoPermitido="paciente" element={<ClinicaPage />} />
-            }
-          />
-          <Route
-            path="/clinicas/user"
-            element={
-              <RouteGuard
-                tipoPermitido="paciente"
-                element={<ClinicaUserPage />}
-              />
-            }
-          />
-          <Route
-            path="/clinicas/:id"
-            element={
-              <RouteGuard
-                tipoPermitido="ambos"
-                element={<ClinicaDetalhesPage />}
-              />
-            }
-          />
-          <Route
-            path="/clinicas/user/:id"
-            element={
-              <RouteGuard
-                tipoPermitido="paciente"
-                element={<ClinicaUserDetalhesPage />}
-              />
-            }
-          />
-          <Route
-            path="/clinicas/formulario"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<ClinicaFormPage />}
-              />
-            }
-          />
-
-          <Route
-            path="/tratamentos"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<TratamentosProfPage />}
-              />
-            }
-          />
-          <Route
-            path="/tratamentos/formulario"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<TratamentosFormPage />}
-              />
-            }
-          />
-          <Route
-            path="/tratamentos/formulario/:id"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<TratamentosFormPage />}
-              />
-            }
-          />
-          <Route
-            path="/tratamentos/sala/:id"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<TratamentoSalaPage />}
-              />
-            }
-          />
-
-          <Route
-            path="/exercicio/:id/jogar/:jogo"
-            element={
-              <RouteGuard
-                tipoPermitido="paciente"
-                element={<ExercicioJogarPage />}
-              />
-            }
-          />
-
-          <Route
-            path="/clinica/:clinicaId/jogos"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<JogosPage />}
-              />
-            }
-          />
-          <Route
-            path="/clinica/:clinicaId/exercicios/novo"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<ExercicioFormPage />}
-              />
-            }
-          />
-          <Route
-            path="/exercicios/:id"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<ExercicioDetalhesPage />}
-              />
-            }
-          />
-
-          <Route
-            path="/configuracoes"
-            element={
-              <RouteGuard
-                tipoPermitido="ambos"
-                element={<ConfiguracoesPage />}
-              />
-            }
-          />
-
-          {/* NOVAS ROTAS DE PERFIL UNIFICADO */}
-          <Route
-            path="/perfil"
-            element={
-              <RouteGuard tipoPermitido="ambos" element={<PerfilPage />} />
-            }
-          />
-          {/* Rota extra caso você queira passar o ID do usuário na URL futuramente */}
-          <Route
-            path="/perfil/:id"
-            element={
-              <RouteGuard tipoPermitido="ambos" element={<PerfilPage />} />
-            }
-          />
-
-          <Route path="/perfil/editar" element={<PerfilEditarPage />} />
-          <Route path="/perfil/excluir" element={<PerfilExcluirPage />} />
-
-          <Route
-            path="/protocolos"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<ProtocolosPage />}
-              />
-            }
-          />
-          <Route
-            path="/protocolos/formulario"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<ProtocolosFormPage />}
-              />
-            }
-          />
-          <Route
-            path="/protocolos/formulario/:id"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<ProtocolosFormPage />}
-              />
-            }
-          />
-          <Route
-            path="/protocolos/:id"
-            element={
-              <RouteGuard
-                tipoPermitido="profissional"
-                element={<ProtocoloDetalhesPage />}
-              />
-            }
-          />
-          <Route
-            path="/missoes"
-            element={
-              <RouteGuard
-                tipoPermitido="paciente"
-                element={<MeusProtocolosPage />}
-              />
-            }
-          />
-        </Routes>
+            <Route path="*" element={<RotaInexistente />} />
+          </Routes>
+        </Suspense>
       </AppProvider>
     </BrowserRouter>
   );

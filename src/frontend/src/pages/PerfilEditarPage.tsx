@@ -14,16 +14,16 @@ import {
   FiBriefcase,
   FiCreditCard,
   FiSave,
-  FiX
+  FiX,
 } from "react-icons/fi";
-import { UsuarioFormInput } from "../interfaces/usuario";
-import { validationPatterns, validationMessages } from "@utils";
+import { UsuarioFormInput } from "@interfaces";
+import { mensagemDeErro } from "@utils";
 
 export function PerfilEditarPage() {
   const navigate = useNavigate();
   // 1. Puxamos os dados exatos e atualizados do contexto (sem depender de localStorage falho)
   const { usuario: usuarioLogado, tipoUsuario: tipoLogado } = useApp();
-  
+
   const [carregando, setCarregando] = useState(false);
 
   // 2. Verificação rígida do tipo
@@ -50,34 +50,38 @@ export function PerfilEditarPage() {
       .slice(0, 18);
   };
 
+  // `usuario` é a união paciente|profissional; só um dos perfis tem cada
+  // documento. O `in` estreita a união em vez de assumir que o campo existe.
+  const cpfSalvo =
+    usuarioLogado && "cpf" in usuarioLogado ? usuarioLogado.cpf : "";
+  const cnpjSalvo =
+    usuarioLogado && "cnpj" in usuarioLogado ? usuarioLogado.cnpj : "";
+
   // 3. O useForm já inicia com os dados do usuário, fazendo o "pre-fill" automaticamente
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    formState: { errors },
-  } = useForm<UsuarioFormInput>({
-    defaultValues: {
-      ...usuarioLogado,
-      dataNascimento: usuarioLogado?.nascimento || usuarioLogado?.dataNascimento || "",
-      // Se tiver CPF ou CNPJ salvo, já aplica a máscara no carregamento inicial
-      cpf: usuarioLogado?.cpf ? mascaraCpf(usuarioLogado.cpf) : "",
-      cnpj: usuarioLogado?.cnpj ? mascaraCnpj(usuarioLogado.cnpj) : "",
-    }
-  });
+  const { register, handleSubmit, setValue, watch, reset } =
+    useForm<UsuarioFormInput>({
+      defaultValues: {
+        ...usuarioLogado,
+        dataNascimento:
+          usuarioLogado?.nascimento || usuarioLogado?.dataNascimento || "",
+        // Se tiver CPF ou CNPJ salvo, já aplica a máscara no carregamento inicial
+        cpf: cpfSalvo ? mascaraCpf(cpfSalvo) : "",
+        cnpj: cnpjSalvo ? mascaraCnpj(cnpjSalvo) : "",
+      },
+    });
 
   // Observa mudanças para aplicar máscaras enquanto o usuário digita
   const cpfValue = watch("cpf");
   const cnpjValue = watch("cnpj");
 
   useEffect(() => {
-    if (cpfValue) setValue("cpf", mascaraCpf(cpfValue), { shouldValidate: true });
+    if (cpfValue)
+      setValue("cpf", mascaraCpf(cpfValue), { shouldValidate: true });
   }, [cpfValue, setValue]);
 
   useEffect(() => {
-    if (cnpjValue) setValue("cnpj", mascaraCnpj(cnpjValue), { shouldValidate: true });
+    if (cnpjValue)
+      setValue("cnpj", mascaraCnpj(cnpjValue), { shouldValidate: true });
   }, [cnpjValue, setValue]);
 
   // Atualiza os valores do formulário caso o usuarioLogado seja carregado de forma assíncrona
@@ -85,12 +89,13 @@ export function PerfilEditarPage() {
     if (usuarioLogado) {
       reset({
         ...usuarioLogado,
-        dataNascimento: usuarioLogado.nascimento || usuarioLogado.dataNascimento || "",
-        cpf: usuarioLogado.cpf ? mascaraCpf(usuarioLogado.cpf) : "",
-        cnpj: usuarioLogado.cnpj ? mascaraCnpj(usuarioLogado.cnpj) : "",
+        dataNascimento:
+          usuarioLogado.nascimento || usuarioLogado.dataNascimento || "",
+        cpf: cpfSalvo ? mascaraCpf(cpfSalvo) : "",
+        cnpj: cnpjSalvo ? mascaraCnpj(cnpjSalvo) : "",
       });
     }
-  }, [usuarioLogado, reset]);
+  }, [usuarioLogado, cpfSalvo, cnpjSalvo, reset]);
 
   const onSubmit = async (data: UsuarioFormInput) => {
     setCarregando(true);
@@ -112,8 +117,8 @@ export function PerfilEditarPage() {
 
       alert("Perfil atualizado com sucesso!");
       window.location.href = "/perfil"; // Redireciona e recarrega a página ao mesmo tempo para obter os novos dados
-    } catch (error: any) {
-      alert("Erro ao atualizar o perfil: " + (error.response?.data || error.message));
+    } catch (error) {
+      alert(mensagemDeErro(error, "Erro ao atualizar o perfil."));
     } finally {
       setCarregando(false);
     }
@@ -149,7 +154,6 @@ export function PerfilEditarPage() {
 
       <main className="max-w-3xl mx-auto px-4 sm:px-6 -mt-24 relative z-20 space-y-8">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-          
           {/* CARD PRINCIPAL - AVATAR E NOME */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -158,12 +162,16 @@ export function PerfilEditarPage() {
           >
             <div className="w-32 h-32 rounded-3xl bg-slate-100 border-4 border-white shadow-lg overflow-hidden shrink-0 flex items-center justify-center text-slate-300 text-5xl">
               {usuarioLogado.avatar ? (
-                <img src={usuarioLogado.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                <img
+                  src={usuarioLogado.avatar}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <FiUser />
               )}
             </div>
-            
+
             <div className="flex-1 pt-2 w-full">
               <div className="inline-block px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold uppercase tracking-widest rounded-lg mb-3">
                 Editando Perfil
@@ -172,7 +180,9 @@ export function PerfilEditarPage() {
                 {...register("nome", { required: "Nome é obrigatório" })}
                 className="w-full text-3xl font-extrabold text-slate-800 tracking-tight bg-transparent border-b-2 border-slate-100 focus:border-emerald-500 outline-none pb-1 transition-colors"
               />
-              <p className="text-slate-400 text-sm font-medium mt-2">Você pode editar seu nome acima.</p>
+              <p className="text-slate-400 text-sm font-medium mt-2">
+                Você pode editar seu nome acima.
+              </p>
             </div>
           </motion.div>
 
@@ -188,14 +198,16 @@ export function PerfilEditarPage() {
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <FiUser className="text-blue-500" /> Dados Pessoais
               </h2>
-              
+
               <div className="space-y-5">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center shrink-0">
                     <FiPhone />
                   </div>
                   <div className="flex-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Telefone</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+                      Telefone
+                    </p>
                     <input
                       {...register("telefone", { required: "Obrigatório" })}
                       className="w-full text-sm font-bold text-slate-700 bg-transparent border-b border-slate-200 focus:border-blue-500 outline-none pb-1"
@@ -208,10 +220,14 @@ export function PerfilEditarPage() {
                     <FiCalendar />
                   </div>
                   <div className="flex-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Data de Nascimento</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+                      Data de Nascimento
+                    </p>
                     <input
                       type="date"
-                      {...register("dataNascimento", { required: "Obrigatório" })}
+                      {...register("dataNascimento", {
+                        required: "Obrigatório",
+                      })}
                       className="w-full text-sm font-bold text-slate-700 bg-transparent border-b border-slate-200 focus:border-blue-500 outline-none pb-1"
                     />
                   </div>
@@ -224,7 +240,9 @@ export function PerfilEditarPage() {
                       <FiCreditCard />
                     </div>
                     <div className="flex-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Documento (CPF)</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+                        Documento (CPF)
+                      </p>
                       <input
                         {...register("cpf", { required: "Obrigatório" })}
                         readOnly
@@ -241,16 +259,19 @@ export function PerfilEditarPage() {
             {isProfissional && (
               <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6">
                 <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <FiBriefcase className="text-indigo-500" /> Registro Profissional
+                  <FiBriefcase className="text-indigo-500" /> Registro
+                  Profissional
                 </h2>
-                
+
                 <div className="space-y-5">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0">
                       <FiAward />
                     </div>
                     <div className="flex-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Registro CREFITO</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+                        Registro CREFITO
+                      </p>
                       <input
                         {...register("crefito", { required: "Obrigatório" })}
                         className="w-full text-sm font-bold text-slate-700 bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none pb-1"
@@ -264,25 +285,35 @@ export function PerfilEditarPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-4 flex-1">
                       <div>
-                         <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Conselho / UF</p>
-                         <div className="flex gap-2">
-                           <input
-                             {...register("conselhoNome", { required: "Obrigatório" })}
-                             className="w-2/3 text-sm font-bold text-slate-700 bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none pb-1"
-                           />
-                           <input
-                             {...register("conselhoUf", { required: "Obrigatório" })}
-                             className="w-1/3 text-sm font-bold text-slate-700 bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none pb-1 uppercase"
-                             maxLength={2}
-                           />
-                         </div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+                          Conselho / UF
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            {...register("conselhoNome", {
+                              required: "Obrigatório",
+                            })}
+                            className="w-2/3 text-sm font-bold text-slate-700 bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none pb-1"
+                          />
+                          <input
+                            {...register("conselhoUf", {
+                              required: "Obrigatório",
+                            })}
+                            className="w-1/3 text-sm font-bold text-slate-700 bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none pb-1 uppercase"
+                            maxLength={2}
+                          />
+                        </div>
                       </div>
                       <div>
-                         <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Número</p>
-                         <input
-                           {...register("conselhoNumero", { required: "Obrigatório" })}
-                           className="w-full text-sm font-bold text-slate-700 bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none pb-1"
-                         />
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">
+                          Número
+                        </p>
+                        <input
+                          {...register("conselhoNumero", {
+                            required: "Obrigatório",
+                          })}
+                          className="w-full text-sm font-bold text-slate-700 bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none pb-1"
+                        />
                       </div>
                     </div>
                   </div>
@@ -298,7 +329,7 @@ export function PerfilEditarPage() {
               onClick={() => navigate(-1)}
               className="py-4 px-8 rounded-2xl bg-white border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
             >
-               <FiX className="text-lg" /> Cancelar
+              <FiX className="text-lg" /> Cancelar
             </button>
 
             <button
@@ -309,14 +340,16 @@ export function PerfilEditarPage() {
               {carregando ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               ) : (
-                <><FiSave className="text-lg" /> Salvar Alterações</>
+                <>
+                  <FiSave className="text-lg" /> Salvar Alterações
+                </>
               )}
             </button>
           </div>
-
         </form>
       </main>
-
-      
     </div>
-  )};
+  );
+}
+
+export default PerfilEditarPage;

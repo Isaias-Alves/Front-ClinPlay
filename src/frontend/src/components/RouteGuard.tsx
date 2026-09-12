@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
-import { useApp } from "../contexts/AppContext";
+import { useApp } from "@contexts";
+import { tokenStorage } from "@services";
 
 interface RouteGuardProps {
   tipoPermitido: "paciente" | "profissional" | "ambos";
@@ -8,7 +9,7 @@ interface RouteGuardProps {
 
 export function RouteGuard({ tipoPermitido, element }: RouteGuardProps) {
   const { tipoUsuario, usuario } = useApp();
-  const token = localStorage.getItem("token");
+  const token = tokenStorage.obter();
 
   // 1. Sem token = Login
   if (!token) {

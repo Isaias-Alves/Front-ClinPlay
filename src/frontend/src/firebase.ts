@@ -1,7 +1,8 @@
-import { initializeApp } from "firebase/app";
-import { getMessaging, getToken, onMessage } from "firebase/messaging";
-
-// Configurações públicas extraídas do seu painel
+/**
+ * Configuração pública do Firebase (Web Push / FCM).
+ * Estas chaves são públicas por design: o controle de acesso fica nas regras
+ * do projeto Firebase, não no segredo do `apiKey`.
+ */
 const firebaseConfig = {
   apiKey: "AIzaSyBMerPvSO4y-eFqTOb0EUudpFq8IbaspEA",
   authDomain: "clin-play.firebaseapp.com",
@@ -12,33 +13,41 @@ const firebaseConfig = {
   measurementId: "G-Y5CJ08CJC7",
 };
 
-const app = initializeApp(firebaseConfig);
+const VAPID_KEY =
+  "BLQVMXCpCIy_jTLImAghq0PjbnpuxjOf8ocOhxNGrgv0s1OwDQltlnGYqwTjw9N7ybzH_3wPcBZGD0AOwoE18d0";
 
-// Proteção para evitar quebras caso o navegador não suporte Web Push (ex: abas anônimas rigorosas ou Safari antigo)
-export const messaging =
-  typeof window !== "undefined" && "Notification" in window
-    ? getMessaging(app)
-    : null;
+/** O SDK do Firebase pesa ~250 kB; só entra no bundle quando o push é usado. */
+const carregarMessaging = async () => {
+  const [{ initializeApp }, messagingSdk] = await Promise.all([
+    import("firebase/app"),
+    import("firebase/messaging"),
+  ]);
+
+  const suportado = await messagingSdk.isSupported();
+  if (!suportado) return null;
+
+  return { sdk: messagingSdk, app: initializeApp(firebaseConfig) };
+};
 
 /**
  * Solicita permissão ao paciente/profissional e gera o Token FCM.
+ * Devolve `null` sempre que o push não estiver disponível ou for recusado —
+ * nunca lança, para não derrubar o carregamento da aplicação.
  */
 export const solicitarTokenFirebase = async (): Promise<string | null> => {
-  if (!messaging) return null;
+  if (typeof window === "undefined" || !("Notification" in window)) return null;
 
   try {
+    // Pedir a permissão antes de carregar o SDK evita baixar ~250 kB
+    // para um usuário que vai recusar a notificação.
     const permission = await Notification.requestPermission();
+    if (permission !== "granted") return null;
 
-    if (permission === "granted") {
-      const token = await getToken(messaging, {
-        vapidKey:
-          "BLQVMXCpCIy_jTLImAghq0PjbnpuxjOf8ocOhxNGrgv0s1OwDQltlnGYqwTjw9N7ybzH_3wPcBZGD0AOwoE18d0",
-      });
-      return token;
-    } else {
-      console.warn("Permissão para notificações negada pelo utilizador.");
-      return null;
-    }
+    const contexto = await carregarMessaging();
+    if (!contexto) return null;
+
+    const messaging = contexto.sdk.getMessaging(contexto.app);
+    return await contexto.sdk.getToken(messaging, { vapidKey: VAPID_KEY });
   } catch (error) {
     console.error("Erro ao obter token do Firebase:", error);
     return null;

@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useApp } from "../contexts/AppContext";
+import { useApp } from "@contexts";
 import {
   FiCheck,
   FiArrowRight,
@@ -11,6 +11,7 @@ import {
 } from "react-icons/fi";
 import { RiMedalLine, RiRocketLine, RiVipCrown2Line } from "react-icons/ri";
 import { assinaturaServices } from "@services";
+import { mensagemDeErro } from "@utils";
 
 export function PlanosPage() {
   const navigate = useNavigate();
@@ -82,9 +83,8 @@ export function PlanosPage() {
         });
         notificar("Plano alterado com sucesso!", "sucesso");
         navigate(-1); // Volta para a tela de detalhes
-      } catch (error: any) {
-        const msg = error.response?.data || "Erro ao alterar o plano.";
-        notificar(typeof msg === "string" ? msg : "Erro.", "erro");
+      } catch (error) {
+        notificar(mensagemDeErro(error, "Erro ao alterar o plano."), "erro");
       } finally {
         setIsSubmittingPlano(false);
       }

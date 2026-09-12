@@ -1,4 +1,16 @@
-import api from "./api";
+import type {
+  ClinicaVinculo,
+  PacienteVinculadoClinica,
+  ProfissionalVinculado,
+} from "@interfaces";
+import api from "./http";
+
+interface PermissoesProfissional {
+  adminClinica: boolean;
+  adminExercicios: boolean;
+  adminPacientes: boolean;
+  adminProfissionais: boolean;
+}
 
 export const clinicasServices = {
   // ==========================================
@@ -13,8 +25,8 @@ export const clinicasServices = {
     uf: string;
     cidade: string;
   }) => {
-    const response = await api.post("/clinica", dados);
-    return response.data;
+    const { data } = await api.post("/clinica", dados);
+    return data;
   },
 
   listar: async (params?: {
@@ -24,26 +36,42 @@ export const clinicasServices = {
     page?: number;
     size?: number;
   }) => {
-    const response = await api.get("/clinica", { params });
-    return response.data;
+    const { data } = await api.get("/clinica", { params });
+    return data;
   },
 
+  /** GET /clinica/tag/{tag} — busca pública de uma clínica pelo código/tag. */
   buscarPorTag: async (tag: string) => {
-    const response = await api.get(`/clinica/tag/${tag}`);
-    return response.data;
+    const { data } = await api.get(`/clinica/tag/${tag}`);
+    return data;
   },
 
-  buscarMinhasClinicas: async (): Promise<any[]> => {
-    const response = await api.get("/clinica/minhas");
-    return response.data;
+  /**
+   * GET /clinica/minhas — clínicas vinculadas ao usuário logado.
+   * O backend resolve paciente vs. profissional pelo token, então este é o
+   * único método necessário para os dois perfis.
+   */
+  buscarMinhasClinicas: async (): Promise<ClinicaVinculo[]> => {
+    const { data } = await api.get("/clinica/minhas");
+    return data;
+  },
+
+  /**
+   * DELETE /clinica/{clinicaId}
+   * NOTA: o ClinicaController ainda não expõe esta rota; a chamada retornará
+   * 404 até o endpoint ser implementado no backend.
+   */
+  deletarClinica: async (clinicaId: string) => {
+    const { data } = await api.delete(`/clinica/${clinicaId}`);
+    return data;
   },
 
   editarClinica: async (
     clinicaId: string,
     dados: { nome: string; especialidade: string; uf: string; cidade: string },
   ) => {
-    const response = await api.put(`/clinica/${clinicaId}`, dados);
-    return response.data;
+    const { data } = await api.put(`/clinica/${clinicaId}`, dados);
+    return data;
   },
 
   // ==========================================
@@ -51,52 +79,60 @@ export const clinicasServices = {
   // ==========================================
 
   listarExercicios: async (clinicaId: string) => {
-    const response = await api.get(`/clinica/${clinicaId}/exercicios`);
-    return response.data;
+    const { data } = await api.get(`/clinica/${clinicaId}/exercicios`);
+    return data;
   },
 
-  listarProfissionais: async (clinicaId: string) => {
-    const response = await api.get(`/clinica/${clinicaId}/profissionais`);
-    return response.data;
+  listarProfissionais: async (
+    clinicaId: string,
+  ): Promise<ProfissionalVinculado[]> => {
+    const { data } = await api.get(`/clinica/${clinicaId}/profissionais`);
+    return data;
   },
 
-  listarPacientes: async (clinicaId: string) => {
-    const response = await api.get(`/clinica/${clinicaId}/pacientes`);
-    return response.data;
+  listarPacientes: async (
+    clinicaId: string,
+  ): Promise<PacienteVinculadoClinica[]> => {
+    const { data } = await api.get(`/clinica/${clinicaId}/pacientes`);
+    return data;
   },
 
+  // As rotas de exclusão usam o recurso no singular no backend
+  // (DELETE /clinica/{id}/profissional/{id}); o plural devolvia 404.
   deletarProfissionalVinculado: async (
     clinicaId: string,
     profissionalId: string,
   ) => {
-    const response = await api.delete(
-      `/clinica/${clinicaId}/profissionais/${profissionalId}`,
+    const { data } = await api.delete(
+      `/clinica/${clinicaId}/profissional/${profissionalId}`,
     );
-    return response.data;
+    return data;
   },
 
   deletarPacienteVinculado: async (clinicaId: string, pacienteId: string) => {
-    const response = await api.delete(
-      `/clinica/${clinicaId}/pacientes/${pacienteId}`,
+    const { data } = await api.delete(
+      `/clinica/${clinicaId}/paciente/${pacienteId}`,
     );
-    return response.data;
+    return data;
+  },
+
+  deletarExercicioVinculado: async (clinicaId: string, exercicioId: string) => {
+    const { data } = await api.delete(
+      `/clinica/${clinicaId}/exercicio/${exercicioId}`,
+    );
+    return data;
   },
 
   atualizarPermissoesProfissional: async (
     clinicaId: string,
     profissionalId: string,
-    permissoes: {
-      adminClinica: boolean;
-      adminExercicios: boolean;
-      adminPacientes: boolean;
-      adminProfissionais: boolean;
-    },
+    permissoes: PermissoesProfissional,
   ) => {
-    const response = await api.put(
+    const { data } = await api.put(
       `/clinica/${clinicaId}/profissionais/${profissionalId}/permissoes`,
       permissoes,
     );
-    return response.data;
+    return data;
   },
 
   // ==========================================
@@ -107,18 +143,18 @@ export const clinicasServices = {
     id: string,
     dados: { aprovado: boolean; resposta?: string },
   ) => {
-    const response = await api.put(`/solicitacao/${id}`, dados);
-    return response.data;
+    const { data } = await api.put(`/solicitacao/${id}`, dados);
+    return data;
   },
 
   solicitarVinculoPaciente: async (tagClinica: string) => {
-    const response = await api.post(`/solicitacao/paciente/${tagClinica}`);
-    return response.data;
+    const { data } = await api.post(`/solicitacao/paciente/${tagClinica}`);
+    return data;
   },
 
   solicitarVinculoProfissional: async (tagClinica: string) => {
-    const response = await api.post(`/solicitacao/profissional/${tagClinica}`);
-    return response.data;
+    const { data } = await api.post(`/solicitacao/profissional/${tagClinica}`);
+    return data;
   },
 
   solicitarExercicio: async (
@@ -129,13 +165,15 @@ export const clinicasServices = {
       jogo: string;
       videoUrl?: string;
       mensagem?: string;
-      configPadrao: any;
+      configPadrao: Record<string, unknown>;
     },
   ) => {
-    const response = await api.post(
+    const { data } = await api.post(
       `/solicitacao/exercicio/${clinicaId}`,
       dados,
     );
-    return response.data;
+    return data;
   },
 };
+
+export default clinicasServices;

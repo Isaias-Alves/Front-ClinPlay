@@ -1,65 +1,61 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-  useCallback,
-} from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { authServices, clinicasServices, planoServices } from "@services";
-import { LogotipoClinPlay, NotificacaoModal } from "@components";
+import {
+  authServices,
+  clinicaStorage,
+  clinicasServices,
+  planoServices,
+  tokenStorage,
+} from "@services";
+// Importados por caminho direto, e não pelo barrel `@components`: esses
+// componentes importam `useApp` de volta, e o ciclo entre os dois barrels
+// gerava avisos de ordem de execução no bundle final.
+import LogotipoClinPlay from "../components/LogotipoClinPlay";
+import { NotificacaoModal } from "../components/NotificacaoModal";
 import { solicitarTokenFirebase } from "../firebase"; // Injeção do Firebase
+import type { ClinicaVinculo } from "@interfaces";
+import {
+  AppContext,
+  type PlanoResponse,
+  type TipoUsuario,
+  type UsuarioLogado,
+} from "./useApp";
 
-interface PlanoResponse {
-  id: string;
-  nome: string;
-  maxProfissionais: number;
-  maxPacientes: number;
-  maxExercicios: number;
-  disponivel: boolean;
-}
+const ROTAS_PUBLICAS = [
+  "/",
+  "/cadastro",
+  "/oauth/callback",
+  "/oauth-callback",
+  "/oauth/setup",
+];
 
-interface AppContextData {
-  usuario: any;
-  tipoUsuario: "paciente" | "profissional" | null;
-  clinicas: any[];
-  clinicaSelecionadaId: string;
-  setClinicaSelecionadaId: (id: string) => void;
-  planos: PlanoResponse[];
-  isLoadingGlobal: boolean;
-  refreshData: () => Promise<void>;
-  notificar: (mensagem: string, tipo: "sucesso" | "erro") => void;
-}
-
-export const AppContext = createContext<AppContextData>({} as AppContextData);
+const ehRotaPublica = (pathname: string) => ROTAS_PUBLICAS.includes(pathname);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [usuario, setUsuario] = useState<any>(null);
-  const [tipoUsuario, setTipoUsuario] = useState<
-    "paciente" | "profissional" | null
-  >(null);
-  const [clinicas, setClinicas] = useState<any[]>([]);
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
+  const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario | null>(null);
+  const [clinicas, setClinicas] = useState<ClinicaVinculo[]>([]);
   const [clinicaSelecionadaId, setClinicaSelecionadaId] = useState<string>("");
   const [planos, setPlanos] = useState<PlanoResponse[]>([]);
-  const [isLoadingGlobal, setIsLoadingGlobal] = useState(true);
+  /*
+   * Lido uma única vez, na montagem: sem token não há carga global a
+   * esperar e a tela de login pode pintar de imediato. Antes o estado
+   * nascia sempre `true` e era desligado por um `setIsLoadingGlobal(false)`
+   * síncrono dentro do efeito — uma renderização inteira desperdiçada em
+   * toda abertura do app deslogado.
+   */
+  const [isLoadingGlobal, setIsLoadingGlobal] = useState(() =>
+    Boolean(tokenStorage.obter()),
+  );
 
   const [notificacao, setNotificacao] = useState<{
     isOpen: boolean;
     mensagem: string;
     tipo: "sucesso" | "erro";
   } | null>(null);
-
-  const rotasPublicas = [
-    "/",
-    "/cadastro",
-    "/oauth/callback",
-    "/oauth-callback",
-    "/oauth/setup",
-  ];
 
   const notificar = useCallback(
     (mensagem: string, tipo: "sucesso" | "erro") => {
@@ -72,37 +68,43 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setNotificacao((prev) => (prev ? { ...prev, isOpen: false } : null));
   }, []);
 
-  const carregarDadosGlobais = async () => {
-    const token = localStorage.getItem("token");
+  /**
+   * `useCallback` porque esta função é exposta como `refreshData`: recriada a
+   * cada renderização, qualquer tela que a colocasse numa lista de
+   * dependências entrava em laço infinito de requisições.
+   */
+  const carregarDadosGlobais = useCallback(async () => {
+    const token = tokenStorage.obter();
 
-    if (!token) {
-      setIsLoadingGlobal(false);
-      if (!rotasPublicas.includes(location.pathname)) navigate("/");
-      return;
-    }
+    // Sem token não há o que carregar. O redirecionamento para o login não
+    // é feito aqui de propósito: o `RouteGuard` já devolve `<Navigate to="/">`
+    // em toda rota privada, e duplicar isso disparava duas navegações.
+    if (!token) return;
 
-    setIsLoadingGlobal(true);
-
+    // Sem `setIsLoadingGlobal(true)` aqui: o estado já nasce `true` e, quando
+    // esta função é usada como `refreshData`, a atualização acontece em
+    // segundo plano — tomar a tela inteira com o loader a cada refresh era
+    // pior para o usuário do que a lista piscar.
     let dadosUsuario;
-    let tipo: "paciente" | "profissional" | null = null;
+    let tipo: TipoUsuario | null = null;
     let planosCarregados: PlanoResponse[] = [];
-    let clinicasCarregadas: any[] = [];
+    let clinicasCarregadas: ClinicaVinculo[] = [];
 
     // PASSO 1: IDENTIDADE (ESTRITAMENTE BLINDADO)
     try {
       dadosUsuario = await authServices.getPacienteInfo();
       tipo = "paciente";
-    } catch (e1) {
+    } catch {
       try {
         dadosUsuario = await authServices.getProfissionalInfo();
         tipo = "profissional";
-      } catch (e2) {
+      } catch {
         setIsLoadingGlobal(false);
         notificar(
           "Perfil não encontrado. Por favor, conclua o seu cadastro.",
           "erro",
         );
-        localStorage.removeItem("token");
+        tokenStorage.limpar();
         navigate("/cadastro");
         return;
       }
@@ -116,7 +118,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         planosCarregados = await planoServices.listar();
         clinicasCarregadas = await clinicasServices.buscarMinhasClinicas();
       }
-    } catch (erroSecundario) {
+    } catch {
       // Falhas secundárias não quebram o login
     }
 
@@ -127,7 +129,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setClinicas(clinicasCarregadas);
 
     if (clinicasCarregadas.length > 0) {
-      const salvaAnteriormente = localStorage.getItem("clinicaSelecionadaId");
+      const salvaAnteriormente = clinicaStorage.obter();
 
       // Validação suportando tanto a chave id quanto clinicaId (padrão do backend atual)
       const existeAinda = clinicasCarregadas.some(
@@ -140,39 +142,77 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         const idParaSalvar =
           clinicasCarregadas[0].clinicaId || clinicasCarregadas[0].id;
         setClinicaSelecionadaId(idParaSalvar);
-        localStorage.setItem("clinicaSelecionadaId", idParaSalvar);
+        clinicaStorage.salvar(idParaSalvar);
       }
-    }
-
-    // PASSO 4: REGISTRO DO DISPOSITIVO PARA NOTIFICAÇÕES (FCM)
-    try {
-      const fcmToken = await solicitarTokenFirebase();
-      if (fcmToken) {
-        await authServices.salvarFcmToken(fcmToken); // Envia para o backend Java
-      }
-    } catch (err) {
-      console.warn("Não foi possível registrar o token FCM:", err);
     }
 
     setIsLoadingGlobal(false);
-  };
+
+    // PASSO 4: REGISTRO DO DISPOSITIVO PARA NOTIFICAÇÕES (FCM)
+    //
+    // Deliberadamente fora do caminho bloqueante: `solicitarTokenFirebase`
+    // chama `Notification.requestPermission()`, que só resolve depois de o
+    // usuário responder ao diálogo do navegador. Enquanto era aguardado
+    // antes do `setIsLoadingGlobal(false)`, a aplicação ficava presa na tela
+    // de carregamento atrás do prompt de permissão.
+    solicitarTokenFirebase()
+      .then((fcmToken) => fcmToken && authServices.salvarFcmToken(fcmToken))
+      .catch((err) =>
+        console.warn("Não foi possível registrar o token FCM:", err),
+      );
+  }, [navigate, notificar]);
 
   useEffect(() => {
-    if (!usuario && !rotasPublicas.includes(location.pathname)) {
+    if (!usuario && !ehRotaPublica(location.pathname)) {
+      /*
+       * Única supressão desta regra no projeto. Em todos os outros pontos a
+       * carga foi movida para dentro do próprio efeito, o que permite ao
+       * React Compiler provar que as atualizações de estado só ocorrem
+       * depois do `await`. Aqui isso não é possível: `carregarDadosGlobais`
+       * também é exposta como `refreshData`, e quatro telas fazem
+       * `await refreshData()` contando que os dados estejam frescos quando
+       * a promise resolver. Trocá-la por um gatilho (contador + efeito)
+       * quebraria esse contrato, e duplicar o corpo da carga seria pior.
+       */
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       carregarDadosGlobais();
-    } else {
-      if (rotasPublicas.includes(location.pathname)) {
-        setIsLoadingGlobal(false);
-      }
     }
-  }, [location.pathname]);
+  }, [usuario, location.pathname, carregarDadosGlobais]);
 
-  const handleSetClinicaSelecionadaId = (id: string) => {
+  /*
+   * Em rota pública (login, cadastro, retorno do OAuth) não há carga global
+   * a esperar. Isso é derivado em vez de escrito por efeito: antes o
+   * `setIsLoadingGlobal(false)` rodava de forma síncrona dentro do efeito,
+   * o que obrigava uma renderização a mais logo na abertura do app.
+   */
+  const carregandoGlobal = isLoadingGlobal && !ehRotaPublica(location.pathname);
+
+  const handleSetClinicaSelecionadaId = useCallback((id: string) => {
     setClinicaSelecionadaId(id);
-    localStorage.setItem("clinicaSelecionadaId", id);
-  };
+    clinicaStorage.salvar(id);
+  }, []);
 
-  if (isLoadingGlobal && !rotasPublicas.includes(location.pathname)) {
+  /**
+   * Encerra a sessão no backend, limpa o estado local e volta ao login.
+   * Centralizado aqui porque cada página fazia o seu próprio
+   * `localStorage.removeItem("token")`, deixando contexto e storage
+   * dessincronizados até o próximo reload.
+   */
+  const logout = useCallback(async () => {
+    try {
+      await authServices.logout();
+    } catch {
+      tokenStorage.limpar();
+    } finally {
+      setUsuario(null);
+      setTipoUsuario(null);
+      setClinicas([]);
+      setClinicaSelecionadaId("");
+      navigate("/", { replace: true });
+    }
+  }, [navigate]);
+
+  if (carregandoGlobal) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 relative overflow-hidden">
         <LogotipoClinPlay mt="mt-0" mb="mb-0" />
@@ -195,9 +235,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         clinicaSelecionadaId,
         setClinicaSelecionadaId: handleSetClinicaSelecionadaId,
         planos,
-        isLoadingGlobal,
+        isLoadingGlobal: carregandoGlobal,
         refreshData: carregarDadosGlobais,
         notificar,
+        logout,
       }}
     >
       {notificacao && (
@@ -212,5 +253,3 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     </AppContext.Provider>
   );
 };
-
-export const useApp = () => useContext(AppContext);

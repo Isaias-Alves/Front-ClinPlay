@@ -1,62 +1,48 @@
-import { useEffect, useRef, useCallback } from "react";
-import { Client } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
-
-const WS_BASE_URL = "https://clinplay-api.onrender.com/ws";
+import { useCallback, useEffect, useRef } from "react";
+import type { ErroSocket, EventoTratamento } from "@interfaces";
+import useStompClient from "./useStompClient";
 
 interface Handlers {
-  onEvento: (evento: any) => void;
-  onErro: (erro: any) => void;
+  onEvento: (evento: EventoTratamento) => void;
+  onErro: (erro: ErroSocket) => void;
 }
 
+/**
+ * Assina a sala de um tratamento específico.
+ * Camada fina sobre `useStompClient`, que cuida de conexão, autenticação
+ * e reconexão.
+ */
 export function useTratamentoSocket(tratamentoId: string, handlers: Handlers) {
-  const clientRef = useRef<Client | null>(null);
+  const destino = `/app/tratamento/${tratamentoId}`;
 
-  const enviar = useCallback(
-    (mensagem: any) => {
-      const client = clientRef.current;
-      if (!client?.connected) {
-        return;
-      }
-      client.publish({
-        destination: `/app/tratamento/${tratamentoId}`,
-        body: JSON.stringify(mensagem),
-      });
-    },
-    [tratamentoId],
-  );
+  // As subscriptions são criadas uma única vez por conexão, então precisam
+  // ler os callbacks de uma ref — senão ficam presas ao closure daquele render.
+  const handlersRef = useRef(handlers);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
+    handlersRef.current = handlers;
+  });
 
-    const client = new Client({
-      webSocketFactory: () => new SockJS(`${WS_BASE_URL}?token=${token}`),
-      reconnectDelay: 5000,
+  const { publicar } = useStompClient({
+    habilitado: Boolean(tratamentoId),
+    aoConectar: ({ assinar, publicar }) => {
+      assinar<EventoTratamento>(`/topic/tratamento/${tratamentoId}`, (evento) =>
+        handlersRef.current.onEvento(evento),
+      );
+      assinar<ErroSocket>("/user/queue/erros", (erro) =>
+        handlersRef.current.onErro(erro),
+      );
+      publicar({ destination: destino, body: { tipo: "OBTER" } });
+    },
+    aoErro: (erro) => handlersRef.current.onErro(erro),
+  });
 
-      onConnect: () => {
-        client.subscribe(`/topic/tratamento/${tratamentoId}`, (message) =>
-          handlers.onEvento(JSON.parse(message.body)),
-        );
-
-        client.subscribe(`/user/queue/erros`, (message) =>
-          handlers.onErro(JSON.parse(message.body)),
-        );
-
-        client.publish({
-          destination: `/app/tratamento/${tratamentoId}`,
-          body: JSON.stringify({ tipo: "OBTER" }),
-        });
-      },
-    });
-
-    client.activate();
-    clientRef.current = client;
-
-    return () => {
-      client.deactivate();
-    };
-  }, [tratamentoId]);
+  const enviar = useCallback(
+    (mensagem: unknown) => publicar({ destination: destino, body: mensagem }),
+    // `publicar` é estável entre renders (lê o cliente de uma ref).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [destino],
+  );
 
   return { enviar };
 }

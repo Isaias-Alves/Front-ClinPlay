@@ -1,14 +1,29 @@
-import api from "./api";
+import api from "./http";
 
 export const exerciciosServices = {
+  /** GET /exercicio/{id} */
   buscarPorId: async (id: string) => {
-    // Ajuste a rota se o backend utilizar outro padrão (ex: /clinica/exercicio/{id})
-    const response = await api.get(`/exercicio/${id}`);
-    return response.data;
+    const { data } = await api.get(`/exercicio/${id}`);
+    return data;
   },
 
-  atualizar: async (id: string, dados: any) => {
-    const response = await api.put(`/exercicio/${id}`, dados);
-    return response.data;
+  /** GET /exercicio — exercícios criados pelo profissional logado. */
+  listarDoProfissional: async () => {
+    const { data } = await api.get("/exercicio");
+    return data;
+  },
+
+  /** PUT /exercicio/{id} */
+  atualizar: async (id: string, dados: Record<string, unknown>) => {
+    const { data } = await api.put(`/exercicio/${id}`, dados);
+    return data;
+  },
+
+  /** DELETE /exercicio/{id} */
+  deletar: async (id: string) => {
+    const { data } = await api.delete(`/exercicio/${id}`);
+    return data;
   },
 };
+
+export default exerciciosServices;

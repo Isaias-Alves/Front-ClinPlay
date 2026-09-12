@@ -36,41 +36,60 @@ export function ProtocoloDetalhesPage() {
 
   const [protocolo, setProtocolo] = useState<ProtocoloResponseApi | null>(null);
   const [exercicios, setExercicios] = useState<ExercicioInfoResponse[]>([]);
-  const [carregando, setCarregando] = useState(true);
-
-  useEffect(() => {
-    carregarDados();
-  }, [id]);
+  /**
+   * Protocolo cujos dados já estão em memória. "Carregando" passa a ser
+   * derivado daqui: o efeito não precisa mais ligar a flag de forma
+   * síncrona, e a tela continua correta quando o `:id` da URL muda sem o
+   * componente desmontar.
+   */
+  const [dadosDe, setDadosDe] = useState<string | null>(null);
+  const carregando = dadosDe !== id;
 
   /**
    * Realiza o fetch do protocolo e, caso possua exercícios vinculados,
    * dispara chamadas paralelas à API para buscar os detalhes de cada um.
    */
-  const carregarDados = async () => {
+  useEffect(() => {
     if (!id) return;
-    setCarregando(true);
-    try {
-      // 1. Busca os dados estritos do protocolo
-      const protocoloData = await protocolosServices.buscarPorId(id);
-      setProtocolo(protocoloData);
 
-      // 2. Busca os detalhes reais dos exercícios usando os IDs do protocolo
-      if (protocoloData.exercicioIds && protocoloData.exercicioIds.length > 0) {
-        const promessasExercicios = protocoloData.exercicioIds.map(
-          (exId: string) => exerciciosServices.buscarExercicioPorId(exId),
-        );
-        const exerciciosDetalhados = await Promise.all(promessasExercicios);
-        setExercicios(exerciciosDetalhados);
-      } else {
-        setExercicios([]);
+    // `cancelado` impede que a resposta de um protocolo anterior sobrescreva
+    // a do protocolo aberto depois dele.
+    let cancelado = false;
+
+    const carregarDados = async () => {
+      try {
+        // 1. Busca os dados estritos do protocolo
+        const protocoloData = await protocolosServices.buscarPorId(id);
+        if (cancelado) return;
+        setProtocolo(protocoloData);
+
+        // 2. Busca os detalhes reais dos exercícios usando os IDs do protocolo
+        if (protocoloData.exercicioIds?.length) {
+          const exerciciosDetalhados = await Promise.all(
+            protocoloData.exercicioIds.map((exId: string) =>
+              exerciciosServices.buscarPorId(exId),
+            ),
+          );
+          if (cancelado) return;
+          setExercicios(exerciciosDetalhados);
+        } else {
+          setExercicios([]);
+        }
+      } catch (error) {
+        if (cancelado) return;
+        console.error("Erro ao carregar dados do protocolo", error);
+        alert("Não foi possível carregar os detalhes do protocolo.");
+      } finally {
+        if (!cancelado) setDadosDe(id);
       }
-    } catch (error) {
-      console.error("Erro ao carregar dados do protocolo", error);
-      alert("Não foi possível carregar os detalhes do protocolo.");
-    } finally {
-      setCarregando(false);
-    }
-  };
+    };
+
+    void carregarDados();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [id]);
 
   if (carregando || !protocolo) {
     return (
@@ -142,7 +161,11 @@ export function ProtocoloDetalhesPage() {
                 <div
                   key={ex.id}
                   className="flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/tratamentos/detalhes/${ex.id}`)}
+                  onClick={() =>
+                    navigate(`/exercicios/${ex.id}`, {
+                      state: { exercicio: ex },
+                    })
+                  }
                 >
                   <span className="text-xs font-bold text-slate-400 w-5 flex-shrink-0">
                     {index + 1}.
@@ -157,11 +180,10 @@ export function ProtocoloDetalhesPage() {
                     </p>
                     <span
                       className={`inline-block mt-1.5 text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                        BADGE_CORES[ex.categoria] ||
-                        "bg-slate-100 text-slate-600"
+                        BADGE_CORES[ex.jogo] || "bg-slate-100 text-slate-600"
                       }`}
                     >
-                      {ex.categoria}
+                      {ex.jogo}
                     </span>
                   </div>
                   <FiChevronRight className="text-slate-300 flex-shrink-0" />
@@ -172,7 +194,7 @@ export function ProtocoloDetalhesPage() {
         </section>
       </main>
 
-      <BottomBar tipo="profissional" ativo="protocolos" />
+      <BottomBar />
     </div>
   );
 }

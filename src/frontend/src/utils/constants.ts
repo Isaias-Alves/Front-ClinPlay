@@ -1,4 +1,4 @@
-import { Estado } from "@interfaces"
+import { Estado } from "@interfaces";
 
 export const ESTADOS_BR: Estado[] = [
   { sigla: "AC", nome: "Acre" },

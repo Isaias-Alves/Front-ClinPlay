@@ -1,23 +1,10 @@
 import { FormCadastro, LogotipoClinPlay } from "@components";
 import { motion } from "framer-motion";
+import { criarContainerVariants, criarItemVariants, MOLA_SUAVE } from "@utils";
 
 // Variantes do Framer Motion para o efeito de entrada em cascata (Stagger)
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.15 },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 150, damping: 20 },
-  },
-};
+const containerVariants = criarContainerVariants(0.15);
+const itemVariants = criarItemVariants(20, MOLA_SUAVE);
 
 const CadastroPage = () => {
   return (

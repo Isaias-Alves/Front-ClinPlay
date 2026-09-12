@@ -7,30 +7,36 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { BottomBar } from "../components/BottomBar";
-import { profissionalServices } from "@services";
-import { pacienteServices } from "@services";
+import {
+  pacienteServices,
+  profissionalServices,
+  tokenStorage,
+} from "@services";
+import { useApp } from "@contexts";
 
 export function PerfilExcluirPage() {
   const navigate = useNavigate();
   const [carregando, setCarregando] = useState(false);
   const [modalAberto, setModalAberto] = useState(false);
-  const tipo: string = localStorage.getItem("tipoUsuario");
+  // O tipo vem do contexto: a chave localStorage("tipoUsuario") nunca é
+  // gravada em lugar nenhum, então a exclusão jamais chamava o serviço certo.
+  const { tipoUsuario, notificar } = useApp();
 
   const handleExcluir = async () => {
     setCarregando(true);
     try {
-      if (tipo === "profissional") {
+      if (tipoUsuario === "profissional") {
         await profissionalServices.deletar();
-      } else if (tipo === "paciente") {
+      } else if (tipoUsuario === "paciente") {
         await pacienteServices.deletar();
+      } else {
+        notificar("Não foi possível identificar o seu perfil.", "erro");
+        return;
       }
-      alert("Conta excluída com sucesso!");
-      localStorage.clear();
+      tokenStorage.limpar();
       navigate("/");
-    } catch (error: any) {
-      alert(
-        "Erro ao excluir conta: " + (error.response?.data || error.message),
-      );
+    } catch {
+      notificar("Não foi possível excluir a conta. Tente novamente.", "erro");
     } finally {
       setCarregando(false);
       setModalAberto(false);
@@ -122,7 +128,7 @@ export function PerfilExcluirPage() {
         </div>
       )}
 
-      <BottomBar tipo="profissional" ativo="configuracoes" />
+      <BottomBar />
     </div>
   );
 }

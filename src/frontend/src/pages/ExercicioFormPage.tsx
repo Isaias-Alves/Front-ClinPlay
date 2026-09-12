@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { motion } from "framer-motion";
@@ -14,6 +14,8 @@ import {
 } from "react-icons/fi";
 import { clinicasServices } from "@services";
 import { useApp } from "@contexts";
+import { obterJogo } from "@games";
+import { mensagemDeErro } from "@utils";
 
 interface ExercicioFormData {
   nome: string;
@@ -40,7 +42,7 @@ export function ExercicioFormPage() {
   const { clinicaId } = useParams<{ clinicaId: string }>();
   const { notificar } = useApp();
 
-  const juegoSelecionado = location.state?.jogoSelecionado;
+  const jogoSelecionado: string | undefined = location.state?.jogoSelecionado;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -64,12 +66,15 @@ export function ExercicioFormPage() {
     },
   });
 
-  if (!juegoSelecionado || !clinicaId) {
-    navigate(-1);
-    return null;
-  }
+  // Navegar durante a renderização dispara aviso do React e pode causar
+  // atualização de estado durante o render do Router; vai para um efeito.
+  useEffect(() => {
+    if (!jogoSelecionado || !clinicaId) navigate(-1);
+  }, [jogoSelecionado, clinicaId, navigate]);
 
   const onSubmit = async (data: ExercicioFormData) => {
+    if (!jogoSelecionado || !clinicaId) return;
+
     setIsSubmitting(true);
     try {
       // Conversão amigável da máscara HH:MM para horas exigidas pelo banco de dados
@@ -82,7 +87,7 @@ export function ExercicioFormPage() {
       const payload = {
         nome: data.nome,
         descricao: data.descricao,
-        jogo: juegoSelecionado,
+        jogo: jogoSelecionado,
         videoUrl: data.videoUrl,
         mensagem: data.mensagem,
         configPadrao: {
@@ -106,9 +111,8 @@ export function ExercicioFormPage() {
         "sucesso",
       );
       navigate("/inicio-profissional");
-    } catch (error: any) {
-      const msg = error.response?.data || "Erro ao cadastrar exercício.";
-      notificar(typeof msg === "string" ? msg : "Erro no cadastro.", "erro");
+    } catch (error) {
+      notificar(mensagemDeErro(error, "Erro ao cadastrar exercício."), "erro");
     } finally {
       setIsSubmitting(false);
     }
@@ -138,7 +142,7 @@ export function ExercicioFormPage() {
             <p className="text-sm font-medium text-slate-500 mt-1">
               Motor visual do biofeedback:{" "}
               <span className="font-bold text-emerald-600">
-                {juegoSelecionado}
+                {obterJogo(jogoSelecionado).nome}
               </span>
             </p>
           </div>
@@ -186,7 +190,7 @@ export function ExercicioFormPage() {
                       validate: (val) => {
                         if (!val || val.trim() === "") return true;
                         const youtubeRegex =
-                          /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)[\w\-]{11}/;
+                          /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)[\w-]{11}/;
                         return (
                           youtubeRegex.test(val.trim()) ||
                           "Insira uma URL válida do YouTube"

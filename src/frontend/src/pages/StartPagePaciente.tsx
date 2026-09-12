@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Header, BuscarClinicaModal } from "@components";
-import { useApp } from "../contexts/AppContext";
-import { authServices } from "@services";
-import { Client } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
+import { useApp } from "@contexts";
+import type {
+  EventoTratamento,
+  FeedbackView,
+  PrescricaoView,
+  TratamentoResponseApi,
+} from "@interfaces";
 import {
   FiPlay,
   FiLock,
@@ -18,27 +21,65 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { FaFireAlt } from "react-icons/fa";
+import { criarContainerVariants, criarItemVariants } from "@utils";
+import { useStompClient } from "@hooks";
 
-const WS_BASE_URL = "https://clinplay-api.onrender.com/ws";
+/**
+ * Eventos que já trazem o tratamento completo no payload.
+ *
+ * `FEEDBACK_CRIADO` estava nesta lista, mas o backend não envia
+ * `tratamento` nesse evento — só `progresso`, `ultimaAcao` e `feedback`.
+ * O efeito era apagar o tratamento do painel assim que o paciente concluía
+ * um exercício. Passou para a lista de eventos que pedem recarga.
+ */
+const trazTratamentoCompleto = (
+  evento: EventoTratamento,
+): evento is Extract<
+  EventoTratamento,
+  { evento: "ESTADO_ATUAL" | "TRATAMENTO_EDITADO" }
+> => evento.evento === "ESTADO_ATUAL" || evento.evento === "TRATAMENTO_EDITADO";
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
-};
+/** Eventos que só sinalizam mudança: exigem novo OBTER. */
+const exigeRecarga = (evento: EventoTratamento): boolean =>
+  evento.evento === "PRESCRICAO_ADICIONADA" ||
+  evento.evento === "PRESCRICAO_REMOVIDA" ||
+  evento.evento === "PRESCRICAO_EDITADA" ||
+  evento.evento === "FEEDBACK_CRIADO";
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { type: "spring", stiffness: 300, damping: 24 },
-  },
-};
+const containerVariants = criarContainerVariants();
+const itemVariants = criarItemVariants();
 
 // ==========================================
 // MOTOR DE REGRAS DE TEMPO DO FRONTEND
 // ==========================================
-const verificarStatusPrescricao = (prescricao: any) => {
+/** Resultado da avaliação das travas de tempo de uma prescrição. */
+interface StatusPrescricao {
+  disponivel: boolean;
+  mensagem: string;
+}
+
+/** Prescrição enriquecida com o status calculado no frontend. */
+type PrescricaoAvaliada = PrescricaoView & {
+  statusFrontend: StatusPrescricao;
+};
+
+/** Tratamento como chega do contexto ou do socket, com a clínica de origem. */
+type TratamentoComClinica = TratamentoResponseApi & {
+  clinicaNome?: string;
+};
+
+/**
+ * Tratamento depois de passar pelo motor de regras de tempo. As prescrições
+ * são substituídas pela versão avaliada, daí o `Omit`.
+ */
+type TratamentoAvaliado = Omit<TratamentoComClinica, "prescricoes"> & {
+  isActiveNow: boolean;
+  prescricoes?: PrescricaoAvaliada[];
+};
+
+const verificarStatusPrescricao = (
+  prescricao: PrescricaoView,
+): StatusPrescricao => {
   // 1. Bloqueio manual do terapeuta (Vem do backend)
   if (!prescricao.disponivel) {
     return { disponivel: false, mensagem: "Pausado pelo profissional" };
@@ -51,16 +92,19 @@ const verificarStatusPrescricao = (prescricao: any) => {
 
   const custom = prescricao.customizacao || {};
   const vezesAoDia = custom.vezesAoDia || 1;
-  const tempoInativoSegundos = custom.tempoInativo || 0;
   const diasInativo = custom.diasInativo || 0;
 
   // Organizar histórico do mais recente para o mais antigo
+  // `quando` pode faltar em registros antigos; valem como os mais velhos.
+  const instante = (f: FeedbackView) =>
+    f.quando ? new Date(f.quando).getTime() : 0;
+
   const feedbacks = [...prescricao.feedbacks].sort(
-    (a, b) => new Date(b.quando).getTime() - new Date(a.quando).getTime(),
+    (a, b) => instante(b) - instante(a),
   );
 
   const ultimoFeedback = feedbacks[0];
-  const dataUltimo = new Date(ultimoFeedback.quando);
+  const dataUltimo = new Date(instante(ultimoFeedback));
   const agora = new Date();
 
   // Zerar as horas para comparar apenas os dias do calendário
@@ -91,7 +135,7 @@ const verificarStatusPrescricao = (prescricao: any) => {
 
   // Identificar quantos treinos já foram feitos HOJE
   const feedbacksHoje = feedbacks.filter((fb) => {
-    return new Date(fb.quando) >= hojeInicio;
+    return instante(fb) >= hojeInicio.getTime();
   });
 
   // B) Verificação de Meta Diária (vezesAoDia)
@@ -130,136 +174,105 @@ export function StartPagePaciente() {
     clinicaSelecionadaId,
     setClinicaSelecionadaId,
     tipoUsuario,
+    logout,
   } = useApp();
 
   const [isBuscaClinicaOpen, setIsBuscaClinicaOpen] = useState(false);
-  const [prescricaoSelecionada, setPrescricaoSelecionada] = useState<
-    any | null
-  >(null);
+  const [prescricaoSelecionada, setPrescricaoSelecionada] =
+    useState<PrescricaoAvaliada | null>(null);
   const [tratamentoDaPrescricao, setTratamentoDaPrescricao] = useState<
     string | null
   >(null);
 
-  const [liveTratamentos, setLiveTratamentos] = useState<Record<string, any>>(
-    {},
-  );
-  const [conectadoWS, setConectadoWS] = useState(false);
+  /** Estado em tempo real por tratamento, sobrepondo o que veio do contexto. */
+  const [liveTratamentos, setLiveTratamentos] = useState<
+    Record<string, TratamentoComClinica>
+  >({});
 
   const todosTratamentosBase = useMemo(() => {
-    let trats: any[] = [];
-    if (clinicaSelecionadaId) {
-      const clinica = clinicas.find(
-        (c) => (c.clinicaId || c.id) === clinicaSelecionadaId,
-      );
-      if (clinica && clinica.tratamentos) {
-        trats = clinica.tratamentos.map((t: any) => ({
-          ...t,
-          clinicaNome: clinica.nome,
-        }));
-      }
-    } else {
-      clinicas.forEach((c) => {
-        if (c.tratamentos) {
-          trats = [
-            ...trats,
-            ...c.tratamentos.map((t: any) => ({ ...t, clinicaNome: c.nome })),
-          ];
-        }
-      });
-    }
-    return trats;
+    // Uma clínica escolhida no topo filtra a lista; sem seleção, junta tudo.
+    const selecionadas = clinicaSelecionadaId
+      ? clinicas.filter((c) => (c.clinicaId || c.id) === clinicaSelecionadaId)
+      : clinicas;
+
+    return selecionadas.flatMap((c) =>
+      (c.tratamentos ?? []).map((t): TratamentoComClinica => ({
+        ...t,
+        clinicaNome: c.nome,
+      })),
+    );
   }, [clinicas, clinicaSelecionadaId]);
 
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token || todosTratamentosBase.length === 0) return;
-
-    const client = new Client({
-      webSocketFactory: () => new SockJS(`${WS_BASE_URL}?token=${token}`),
-      reconnectDelay: 5000,
-      onConnect: () => {
-        setConectadoWS(true);
-        todosTratamentosBase.forEach((t) => {
-          client.subscribe(`/topic/tratamento/${t.id}`, (message) => {
-            const evento = JSON.parse(message.body);
-
-            if (
-              evento.evento === "ESTADO_ATUAL" ||
-              evento.evento === "TRATAMENTO_EDITADO" ||
-              evento.evento === "FEEDBACK_CRIADO"
-            ) {
-              setLiveTratamentos((prev) => ({
-                ...prev,
-                [t.id]: { ...evento.tratamento, clinicaNome: t.clinicaNome },
-              }));
-            } else if (
-              evento.evento === "PRESCRICAO_ADICIONADA" ||
-              evento.evento === "PRESCRICAO_REMOVIDA" ||
-              evento.evento === "PRESCRICAO_EDITADA"
-            ) {
-              client.publish({
-                destination: `/app/tratamento/${t.id}`,
-                body: JSON.stringify({ tipo: "OBTER" }),
-              });
-            }
-          });
-
-          client.publish({
+  const { conectado: conectadoWS } = useStompClient({
+    habilitado: todosTratamentosBase.length > 0,
+    aoConectar: ({ assinar, publicar }) => {
+      todosTratamentosBase.forEach((t) => {
+        const pedirEstado = () =>
+          publicar({
             destination: `/app/tratamento/${t.id}`,
-            body: JSON.stringify({ tipo: "OBTER" }),
+            body: { tipo: "OBTER" },
           });
-        });
-      },
-      onDisconnect: () => setConectadoWS(false),
-    });
 
-    client.activate();
-    return () => {
-      client.deactivate();
-    };
-  }, [todosTratamentosBase]);
+        assinar<EventoTratamento>(`/topic/tratamento/${t.id}`, (evento) => {
+          if (trazTratamentoCompleto(evento)) {
+            setLiveTratamentos((prev) => ({
+              ...prev,
+              // Mesclado sobre o estado anterior porque `TRATAMENTO_EDITADO`
+              // traz só os campos alterados: substituir a entrada inteira
+              // apagava o resto do tratamento até o próximo OBTER.
+              [t.id]: {
+                ...(prev[t.id] ?? t),
+                ...evento.tratamento,
+                clinicaNome: t.clinicaNome,
+              },
+            }));
+          } else if (exigeRecarga(evento)) {
+            pedirEstado();
+          }
+        });
+
+        pedirEstado();
+      });
+    },
+  });
 
   // Processa as travas de tempo do frontend
   const tratamentosProcessados = useMemo(() => {
-    const renderizar = todosTratamentosBase.map((base) => {
-      const live = liveTratamentos[base.id];
-      return live ? { ...base, ...live } : base;
-    });
+    const renderizar = todosTratamentosBase.map(
+      (base) => liveTratamentos[base.id] || base,
+    );
 
-    return renderizar.map((t) => {
-      if (!t.prescricoes) return { ...t, isActiveNow: false };
+    return renderizar.map((t): TratamentoAvaliado => {
+      // `prescricoes` explícito: o spread traria o tipo não avaliado.
+      if (!t.prescricoes)
+        return { ...t, prescricoes: undefined, isActiveNow: false };
 
-      const prescricoesAvaliadas = t.prescricoes.map((p: any) => {
-        const status = verificarStatusPrescricao(p);
-        return { ...p, statusFrontend: status };
-      });
+      const prescricoesAvaliadas: PrescricaoAvaliada[] = t.prescricoes.map(
+        (p) => ({ ...p, statusFrontend: verificarStatusPrescricao(p) }),
+      );
 
       const isActiveNow = prescricoesAvaliadas.some(
-        (p: any) => p.statusFrontend.disponivel === true,
+        (p) => p.statusFrontend.disponivel,
       );
       return { ...t, prescricoes: prescricoesAvaliadas, isActiveNow };
     });
   }, [todosTratamentosBase, liveTratamentos]);
 
-  const hojeStr = new Date().toISOString().split("T")[0];
-  const ehFinalizado = (t: any) =>
-    !!(t.fim && t.fim.split("T")[0] <= hojeStr);
-  const naoExpirado = (t: any) => !t.fim || t.fim.split("T")[0] > hojeStr;
-
   const tratamentosAtivos = tratamentosProcessados.filter(
-    (t) => naoExpirado(t) && t.isActiveNow,
+    (t) => !t.fim && t.isActiveNow,
   );
   const tratamentosPausados = tratamentosProcessados.filter(
-    (t) => naoExpirado(t) && !t.isActiveNow,
+    (t) => !t.fim && !t.isActiveNow,
   );
-  const tratamentosFinalizados = tratamentosProcessados.filter(ehFinalizado);
 
-  const handleLogout = async () => {
-    await authServices.logout();
-    navigate("/");
+  const handleLogout = () => {
+    void logout();
   };
 
-  const handleAbrirDetalhes = (prescricao: any, tratamentoId: string) => {
+  const handleAbrirDetalhes = (
+    prescricao: PrescricaoAvaliada,
+    tratamentoId: string,
+  ) => {
     setPrescricaoSelecionada(prescricao);
     setTratamentoDaPrescricao(tratamentoId);
   };
@@ -277,7 +290,9 @@ export function StartPagePaciente() {
     });
   };
 
-  const formatarData = (dataStr: string) => {
+  /** ISO (YYYY-MM-DD ou completa) para DD/MM/AAAA. Tolera valor ausente. */
+  const formatarData = (dataStr?: string | null) => {
+    if (!dataStr) return "—";
     const [ano, mes, dia] = dataStr.split("T")[0].split("-");
     return `${dia}/${mes}/${ano}`;
   };
@@ -312,7 +327,10 @@ export function StartPagePaciente() {
           tipoUsuario={tipoUsuario}
           onSelectClinica={setClinicaSelecionadaId}
           onNovaClinica={() => setIsBuscaClinicaOpen(true)}
-          usuarioLogado={{ nome: usuario?.nome, avatarUrl: usuario?.avatar }}
+          usuarioLogado={{
+            nome: usuario?.nome,
+            avatarUrl: usuario?.avatar ?? undefined,
+          }}
           onNavigatePerfil={() => navigate("/perfil")}
           onNavigateConfiguracoes={() => navigate("/configuracoes")}
           onLogout={handleLogout}
@@ -422,7 +440,7 @@ export function StartPagePaciente() {
                                 ? tratamento.progresso.toFixed(0)
                                 : "0"}
                             </div>
-                            <div className="w-full bg-slate-600 h-3 border-[2px] border-slate-500 p-[1px] relative flex">
+                            <div className="w-full bg-slate-900 h-3 border-[2px] border-slate-800 p-[1px] relative flex">
                               <div
                                 className="h-full bg-[#82E600] transition-all duration-500 ease-out relative"
                                 style={{
@@ -435,7 +453,7 @@ export function StartPagePaciente() {
                               <div
                                 className="absolute inset-0 pointer-events-none"
                                 style={{
-                                  backgroundImage: `repeating-linear-gradient(to right, transparent, transparent calc(100% / 18 - 1px), #94a3b8 calc(100% / 18 - 1px), #94a3b8 calc(100% / 18))`,
+                                  backgroundImage: `repeating-linear-gradient(to right, transparent, transparent calc(100% / 18 - 1px), #1e293b calc(100% / 18 - 1px), #1e293b calc(100% / 18))`,
                                 }}
                               ></div>
                             </div>
@@ -445,7 +463,7 @@ export function StartPagePaciente() {
 
                       {/* LISTA DE EXERCÍCIOS COM A TRAVA APLICADA */}
                       <div className="p-4 space-y-2">
-                        {tratamento.prescricoes.map((prescricao: any) => {
+                        {(tratamento.prescricoes ?? []).map((prescricao) => {
                           const status = prescricao.statusFrontend;
 
                           return (
@@ -483,15 +501,8 @@ export function StartPagePaciente() {
                                     {prescricao.exercicioNome}
                                   </h4>
                                   <p className="text-xs font-medium text-slate-400 mt-0.5 truncate">
-                                    {(() => {
-                                      const hojeInicio = new Date();
-                                      hojeInicio.setHours(0, 0, 0, 0);
-                                      const feitas = (prescricao.feedbacks || []).filter(
-                                        (fb: any) => new Date(fb.quando) >= hojeInicio,
-                                      ).length;
-                                      const total = prescricao.customizacao?.vezesAoDia || 1;
-                                      return `${feitas}/${total} Sessões Diárias`;
-                                    })()}
+                                    {prescricao.customizacao?.vezesAoDia || 1}{" "}
+                                    Sessões Diárias
                                   </p>
                                 </div>
                               </div>
@@ -553,57 +564,6 @@ export function StartPagePaciente() {
                           %
                         </span>
                       </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* SEÇÃO DE FINALIZADOS */}
-            {tratamentosFinalizados.length > 0 && (
-              <section className="space-y-4">
-                <h2 className="text-xs font-bold text-rose-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                  <FiCheckCircle className="text-lg" /> Tratamentos Finalizados
-                </h2>
-                <div className="space-y-4">
-                  {tratamentosFinalizados.map((tratamento) => (
-                    <motion.div
-                      key={tratamento.id}
-                      variants={itemVariants}
-                      className="bg-white rounded-3xl border border-rose-100 shadow-sm opacity-75 relative z-10 overflow-hidden"
-                    >
-                      <div className="p-5 border-b border-rose-50 flex items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">
-                            {tratamento.clinicaNome}
-                          </p>
-                          <h3 className="text-base font-bold text-slate-600 truncate">
-                            {tratamento.descricao || "Tratamento"}
-                          </h3>
-                        </div>
-                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-widest bg-rose-100 text-rose-600 border border-rose-200 px-3 py-1.5 rounded-xl">
-                          Finalizado
-                        </span>
-                      </div>
-
-                      {tratamento.prescricoes &&
-                        tratamento.prescricoes.length > 0 && (
-                          <div className="p-3 space-y-1.5">
-                            {tratamento.prescricoes.map((prescricao: any) => (
-                              <div
-                                key={prescricao.id}
-                                className="p-3 rounded-xl border border-slate-100 bg-slate-50 flex items-center gap-3 cursor-not-allowed"
-                              >
-                                <div className="w-9 h-9 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center shrink-0">
-                                  <FiLock />
-                                </div>
-                                <span className="text-sm font-medium text-slate-400 truncate">
-                                  {prescricao.exercicioNome}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
                     </motion.div>
                   ))}
                 </div>
@@ -702,7 +662,7 @@ export function StartPagePaciente() {
                       {[...prescricaoSelecionada.feedbacks]
                         .reverse()
                         .slice(0, 3)
-                        .map((fb: any) => (
+                        .map((fb) => (
                           <div
                             key={fb.id}
                             className="bg-white border border-slate-200 p-3 rounded-2xl shadow-sm flex items-center justify-between"
