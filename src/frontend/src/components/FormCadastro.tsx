@@ -34,12 +34,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { LoginSetup } from "@interfaces";
 
 interface LocationState {
-  /**
-   * O que a `OAuthSetup` envia é o retorno de `GET /auth/setup`, ou seja um
-   * `LoginSetup`. A declaração anterior descrevia outro formato
-   * (`{ id, name, ... }`) e o código lia `data.id`, campo que o `LoginSetup`
-   * não tem — o `googleId` do cadastro ficava sempre indefinido.
-   */
+  /** O que a `OAuthSetup` envia é o retorno de `GET /auth/setup`. */
   googleData?: LoginSetup;
 }
 
@@ -52,7 +47,6 @@ function FormCadastro() {
   const { fetchGoogleData } = useGoogleAuth();
   const { refreshData } = useApp();
 
-  const [googleId, setGoogleId] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string>("");
 
   const {
@@ -76,7 +70,7 @@ function FormCadastro() {
     closeModal();
     handleSubmit(async (data) => {
       try {
-        await salvarUsuario(data, googleId || undefined, avatarUrl);
+        await salvarUsuario(data, avatarUrl);
         await refreshData();
         const destino =
           data.tipo === "paciente" ? "/inicio" : "/inicio-profissional";
@@ -93,7 +87,6 @@ function FormCadastro() {
 
       if (rawData) {
         const data = rawData;
-        setGoogleId(data.googleId);
 
         setTimeout(() => {
           if (data?.nome)

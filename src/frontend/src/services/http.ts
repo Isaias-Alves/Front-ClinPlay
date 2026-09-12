@@ -3,7 +3,7 @@ import axios, {
   AxiosInstance,
   InternalAxiosRequestConfig,
 } from "axios";
-import { tokenStorage } from "./tokenStorage";
+import { refreshTokenStorage, tokenStorage } from "./tokenStorage";
 
 /** Base da API sem barra final, para concatenações previsíveis (`${BASE_URL}/ws`). */
 export const BASE_URL = (
@@ -52,17 +52,44 @@ type RequisicaoComRetry = InternalAxiosRequestConfig & {
  */
 let refreshEmAndamento: Promise<string> | null = null;
 
+/** Corpo de `GET /auth/refresh` — o backend devolve o par renovado. */
+export interface TokensRenovados {
+  access: string;
+  refresh: string;
+}
+
+/**
+ * Renova a sessão.
+ *
+ * `GET /auth/refresh` exige o refresh token em `Authorization: Bearer` e
+ * responde com `{ access, refresh }`. A versão anterior não mandava
+ * cabeçalho nenhum (contava com um cookie que o backend não usa) e tratava a
+ * resposta como uma string — ou seja, a renovação nunca funcionou: todo 401
+ * terminava em logout.
+ *
+ * Usa `apiComCookies` de propósito, para não reentrar no interceptor de
+ * `api` e cair num laço de refresh.
+ */
 const renovarToken = (): Promise<string> => {
-  refreshEmAndamento ??= apiComCookies
-    .get<string>("/auth/refresh")
-    .then(({ data }) => {
-      if (!data) throw new Error("Refresh sem token de acesso.");
-      tokenStorage.salvar(data);
-      return data;
-    })
-    .finally(() => {
-      refreshEmAndamento = null;
+  refreshEmAndamento ??= (async () => {
+    const refresh = refreshTokenStorage.obter();
+    if (!refresh) throw new Error("Sessão sem refresh token guardado.");
+
+    const { data } = await apiComCookies.get<TokensRenovados>("/auth/refresh", {
+      headers: { Authorization: `Bearer ${refresh}` },
     });
+
+    if (!data?.access) throw new Error("Refresh sem token de acesso.");
+
+    tokenStorage.salvar(data.access);
+    // O backend rotaciona o refresh token a cada renovação; guardar o novo
+    // é o que mantém a sessão viva na próxima vez.
+    if (data.refresh) refreshTokenStorage.salvar(data.refresh);
+
+    return data.access;
+  })().finally(() => {
+    refreshEmAndamento = null;
+  });
 
   return refreshEmAndamento;
 };

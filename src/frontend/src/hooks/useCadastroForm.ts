@@ -48,9 +48,15 @@ const useCadastroForm = () => {
     );
   };
 
+  /**
+   * Cria a conta a partir do formulário.
+   *
+   * Não recebe mais `googleId`: o parâmetro nunca foi lido no corpo da
+   * função, os DTOs `CadastroPaciente`/`CadastroProfissional` não têm esse
+   * campo e o backend identifica a conta pelo próprio token de setup.
+   */
   const salvarUsuario = async (
     formData: UsuarioFormInput,
-    googleId?: string,
     avatarUrl?: string | null,
   ) => {
     const partesData = formData.dataNascimento.split("/");

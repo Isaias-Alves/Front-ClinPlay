@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@contexts";
-import { setupTokenStorage, tokenStorage } from "@services";
+import {
+  refreshTokenStorage,
+  setupTokenStorage,
+  tokenStorage,
+} from "@services";
 
 /**
  * Extrai o access token do retorno do provedor e o apaga da URL.
@@ -16,6 +20,8 @@ import { setupTokenStorage, tokenStorage } from "@services";
 interface TokensDoRetorno {
   /** Sessão pronta: o usuário já tem conta. */
   acesso: string | null;
+  /** Renova a sessão quando o access token expira. */
+  refresh: string | null;
   /** Conta ainda não criada: o fluxo segue para `/oauth/setup`. */
   setup: string | null;
 }
@@ -29,7 +35,11 @@ const extrairTokenELimparUrl = (): TokensDoRetorno => {
   const ler = (chave: string) =>
     doFragmento.get(chave)?.trim() || daQuery.get(chave)?.trim() || null;
 
-  const tokens = { acesso: ler("access_token"), setup: ler("setup_token") };
+  const tokens = {
+    acesso: ler("access_token"),
+    refresh: ler("refresh_token"),
+    setup: ler("setup_token"),
+  };
 
   if (hash || search) {
     window.history.replaceState(null, "", pathname);
@@ -50,10 +60,13 @@ export function OAuthCallback() {
     if (processoExecutado.current) return;
     processoExecutado.current = true;
 
-    const { acesso, setup } = extrairTokenELimparUrl();
+    const { acesso, refresh, setup } = extrairTokenELimparUrl();
 
     if (acesso) {
       tokenStorage.salvar(acesso);
+      // Sem guardar o refresh, a sessão morre no primeiro 401 e o usuário é
+      // devolvido ao login — o backend envia os dois no mesmo fragmento.
+      if (refresh) refreshTokenStorage.salvar(refresh);
       navigate("/inicio", { replace: true });
       return;
     }

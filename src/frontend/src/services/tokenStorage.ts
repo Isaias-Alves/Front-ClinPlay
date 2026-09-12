@@ -1,4 +1,5 @@
 const CHAVE_TOKEN = "token";
+const CHAVE_REFRESH = "refreshToken";
 const CHAVE_CLINICA = "clinicaSelecionadaId";
 
 /**
@@ -16,8 +17,28 @@ export const tokenStorage = {
   /** Remove o token e todo o estado de sessão derivado dele. */
   limpar: (): void => {
     localStorage.removeItem(CHAVE_TOKEN);
+    localStorage.removeItem(CHAVE_REFRESH);
     localStorage.removeItem(CHAVE_CLINICA);
   },
+};
+
+/**
+ * Refresh token da sessão.
+ *
+ * O backend não usa cookie: entrega o refresh token no fragmento da URL de
+ * retorno do OAuth (`#refresh_token=`) e espera recebê-lo de volta como
+ * `Authorization: Bearer` em `GET /auth/refresh`. Não há, portanto, como
+ * mantê-lo fora do alcance do JavaScript — guardar aqui é a única opção
+ * compatível com esse desenho.
+ *
+ * Fica em `localStorage` para a sessão sobreviver ao fechamento do
+ * navegador, como era antes. Trocar por `sessionStorage` reduziria a
+ * exposição a XSS ao custo de exigir novo login a cada abertura.
+ */
+export const refreshTokenStorage = {
+  obter: (): string | null => localStorage.getItem(CHAVE_REFRESH),
+  salvar: (token: string): void => localStorage.setItem(CHAVE_REFRESH, token),
+  limpar: (): void => localStorage.removeItem(CHAVE_REFRESH),
 };
 
 /**

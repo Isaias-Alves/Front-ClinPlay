@@ -1,45 +1,22 @@
-import { Usuario } from "./Usuario";
-import { Provedor } from "@utils";
-
+/**
+ * Resposta de `GET /auth/setup`.
+ *
+ * São exatamente os três campos que o backend extrai das claims do token de
+ * setup (ver `JwtService.extrairSetup`): o que o Google devolveu sobre a
+ * conta, para pré-preencher o formulário de cadastro.
+ *
+ * A versão anterior desta interface declarava `loginId`, `googleId`,
+ * `provedor`, `senhaHash`, `verificado`, `criadoEm` e um `usuario` aninhado.
+ * Nenhum deles existe na resposta — e era por isso que o `googleId` lido em
+ * `FormCadastro` vinha sempre indefinido. A identificação da conta não passa
+ * por aqui: o backend a resolve a partir do próprio token de setup
+ * (`jwtService.extrairSub`).
+ */
 export interface LoginSetup {
-  /**
-   * ID do usuário usado para login
-   */
-  loginId: string;
-  /**
-   * ID do usuário no Google
-   */
-  googleId: string;
-  /**
-   * Nome do usuário
-   */
+  /** Nome da conta Google. */
   nome: string;
-  /**
-   * Email do usuário
-   */
+  /** E-mail da conta Google. */
   email: string;
-  /**
-   * Provedor de autenticação
-   */
-  provedor: Provedor;
-  /**
-   * Hash da senha do usuário
-   */
-  senhaHash?: string;
-  /**
-   * Indica se o usuário foi verificado
-   */
-  verificado: boolean;
-  /**
-   * Foto de avatar do usuário
-   */
+  /** URL da foto de perfil do Google. */
   avatar: string;
-  /**
-   * Data de criação do usuário
-   */
-  criadoEm: Date;
-  /**
-   * Dados do usuário
-   */
-  usuario: Usuario;
 }

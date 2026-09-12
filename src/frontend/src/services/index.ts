@@ -3,6 +3,7 @@ export {
   tokenStorage,
   clinicaStorage,
   setupTokenStorage,
+  refreshTokenStorage,
 } from "./tokenStorage";
 export { default as authServices } from "./authServices";
 export * from "./clin";

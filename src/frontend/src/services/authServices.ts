@@ -1,5 +1,9 @@
-import api, { apiComCookies } from "./http";
-import { setupTokenStorage, tokenStorage } from "./tokenStorage";
+import api, { apiComCookies, type TokensRenovados } from "./http";
+import {
+  refreshTokenStorage,
+  setupTokenStorage,
+  tokenStorage,
+} from "./tokenStorage";
 import {
   CadastroPacienteRequest,
   CadastroProfissionalRequest,
@@ -8,10 +12,17 @@ import {
   LoginSetup,
 } from "@interfaces";
 
-/** Persiste o access token devolvido pelos fluxos de cadastro/refresh. */
-const guardarToken = (token: string): string => {
-  if (token) tokenStorage.salvar(token);
-  return token;
+/**
+ * Persiste o par de tokens devolvido pelos fluxos de cadastro e de refresh.
+ *
+ * `POST /paciente`, `POST /profissional` e `GET /auth/refresh` respondem
+ * todos com `{ access, refresh }`. O código anterior tratava a resposta como
+ * uma string e gravava o objeto inteiro como access token.
+ */
+const guardarTokens = (tokens: TokensRenovados): string => {
+  if (tokens?.access) tokenStorage.salvar(tokens.access);
+  if (tokens?.refresh) refreshTokenStorage.salvar(tokens.refresh);
+  return tokens?.access ?? "";
 };
 
 /**
@@ -32,9 +43,9 @@ const cabecalhoSetup = () => {
 
 export const authServices = {
   /**
-   * Obtém os dados de setup do Google (Nome, Email, Avatar) para preencher o formulário de cadastro.
-   * Utiliza a instância com cookies para ler o token de setup injetado pelo backend.
-   * @returns {Promise<LoginSetup>} Dados extraídos do Google.
+   * Obtém os dados de setup do Google para preencher o cadastro.
+   * Autenticado pelo token de setup recebido na URL de retorno do OAuth.
+   * @returns {Promise<LoginSetup>} Nome, e-mail e avatar extraídos do Google.
    */
   getLoginSetup: async (): Promise<LoginSetup> => {
     const response = await apiComCookies.get("/auth/setup", {
@@ -62,41 +73,43 @@ export const authServices = {
   },
 
   /**
-   * Cadastra um novo Paciente.
-   * Envia o cookie "ClinPlay" automaticamente através do apiComCookies.
+   * Cadastra um novo Paciente. Autenticado pelo token de setup.
    * @param {CadastroPacienteRequest} payload - Dados do paciente.
    * @returns {Promise<string>} O novo Access Token gerado.
    */
   cadastrarPaciente: async (
     payload: CadastroPacienteRequest,
   ): Promise<string> => {
-    const response = await apiComCookies.post("/paciente", payload, {
-      headers: cabecalhoSetup(),
-    });
+    const response = await apiComCookies.post<TokensRenovados>(
+      "/paciente",
+      payload,
+      { headers: cabecalhoSetup() },
+    );
 
     // O token de setup vale por um cadastro só; guardá-lo depois disso
     // deixaria credencial morta na aba.
     setupTokenStorage.limpar();
 
-    return guardarToken(response.data);
+    return guardarTokens(response.data);
   },
 
   /**
-   * Cadastra um novo Profissional.
-   * Envia o cookie "ClinPlay" automaticamente através do apiComCookies.
+   * Cadastra um novo Profissional. Autenticado pelo token de setup.
    * @param {CadastroProfissionalRequest} payload - Dados do profissional.
    * @returns {Promise<string>} O novo Access Token gerado.
    */
   cadastrarProfissional: async (
     payload: CadastroProfissionalRequest,
   ): Promise<string> => {
-    const response = await apiComCookies.post("/profissional", payload, {
-      headers: cabecalhoSetup(),
-    });
+    const response = await apiComCookies.post<TokensRenovados>(
+      "/profissional",
+      payload,
+      { headers: cabecalhoSetup() },
+    );
 
     setupTokenStorage.limpar();
 
-    return guardarToken(response.data);
+    return guardarTokens(response.data);
   },
 
   /**
@@ -116,17 +129,18 @@ export const authServices = {
   },
 
   /**
-   * Envia o token de dispositivo do Firebase Cloud Messaging para o backend.
-   * Rota: PATCH /auth/fcm-token
-   * @param {string} fcmToken - O token gerado pelo Firebase SDK no frontend.
-   */
-  /**
-   * Troca o cookie httpOnly de refresh por um novo access token.
-   * Rota: GET /auth/refresh
+   * Troca o refresh token guardado por um novo par de tokens.
+   * Rota: GET /auth/refresh (Authorization: Bearer <refresh>)
    */
   renovarToken: async (): Promise<string> => {
-    const response = await apiComCookies.get<string>("/auth/refresh");
-    return guardarToken(response.data);
+    const refresh = refreshTokenStorage.obter();
+    if (!refresh) throw new Error("Sessão sem refresh token guardado.");
+
+    const response = await apiComCookies.get<TokensRenovados>("/auth/refresh", {
+      headers: { Authorization: `Bearer ${refresh}` },
+    });
+
+    return guardarTokens(response.data);
   },
 
   /**
@@ -142,6 +156,11 @@ export const authServices = {
     }
   },
 
+  /**
+   * Envia o token de dispositivo do Firebase Cloud Messaging para o backend.
+   * Rota: PATCH /auth/fcm-token
+   * @param {string} fcmToken - O token gerado pelo Firebase SDK no frontend.
+   */
   salvarFcmToken: async (fcmToken: string) => {
     const response = await api.patch("/auth/fcm-token", { fcmToken });
     return response.data;
