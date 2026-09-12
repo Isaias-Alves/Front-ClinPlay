@@ -1,5 +1,9 @@
 export { default as api, apiComCookies, BASE_URL } from "./http";
-export { tokenStorage, clinicaStorage } from "./tokenStorage";
+export {
+  tokenStorage,
+  clinicaStorage,
+  setupTokenStorage,
+} from "./tokenStorage";
 export { default as authServices } from "./authServices";
 export * from "./clin";
 export * from "./exerciciosServices";

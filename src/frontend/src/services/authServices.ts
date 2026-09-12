@@ -1,5 +1,5 @@
 import api, { apiComCookies } from "./http";
-import { tokenStorage } from "./tokenStorage";
+import { setupTokenStorage, tokenStorage } from "./tokenStorage";
 import {
   CadastroPacienteRequest,
   CadastroProfissionalRequest,
@@ -14,6 +14,22 @@ const guardarToken = (token: string): string => {
   return token;
 };
 
+/**
+ * Cabeçalho com o token de setup do OAuth.
+ *
+ * O backend entrega esse token na URL de retorno, não num cookie — Vercel e
+ * Render são domínios distintos, então um cookie de sessão seria de
+ * terceiros. Sem este cabeçalho, `/auth/setup` e os dois cadastros respondem
+ * 400 "Token de setup inválido ou expirado".
+ *
+ * Devolve um objeto vazio quando não há token, para não enviar
+ * `Authorization: Bearer null`.
+ */
+const cabecalhoSetup = () => {
+  const token = setupTokenStorage.obter();
+  return token ? { Authorization: `Bearer ${token}` } : undefined;
+};
+
 export const authServices = {
   /**
    * Obtém os dados de setup do Google (Nome, Email, Avatar) para preencher o formulário de cadastro.
@@ -21,7 +37,9 @@ export const authServices = {
    * @returns {Promise<LoginSetup>} Dados extraídos do Google.
    */
   getLoginSetup: async (): Promise<LoginSetup> => {
-    const response = await apiComCookies.get("/auth/setup");
+    const response = await apiComCookies.get("/auth/setup", {
+      headers: cabecalhoSetup(),
+    });
     return response.data;
   },
 
@@ -52,7 +70,13 @@ export const authServices = {
   cadastrarPaciente: async (
     payload: CadastroPacienteRequest,
   ): Promise<string> => {
-    const response = await apiComCookies.post("/paciente", payload);
+    const response = await apiComCookies.post("/paciente", payload, {
+      headers: cabecalhoSetup(),
+    });
+
+    // O token de setup vale por um cadastro só; guardá-lo depois disso
+    // deixaria credencial morta na aba.
+    setupTokenStorage.limpar();
 
     return guardarToken(response.data);
   },
@@ -66,7 +90,11 @@ export const authServices = {
   cadastrarProfissional: async (
     payload: CadastroProfissionalRequest,
   ): Promise<string> => {
-    const response = await apiComCookies.post("/profissional", payload);
+    const response = await apiComCookies.post("/profissional", payload, {
+      headers: cabecalhoSetup(),
+    });
+
+    setupTokenStorage.limpar();
 
     return guardarToken(response.data);
   },
@@ -110,6 +138,7 @@ export const authServices = {
       await api.delete("/auth/logout");
     } finally {
       tokenStorage.limpar();
+      setupTokenStorage.limpar();
     }
   },
 

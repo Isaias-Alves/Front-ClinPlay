@@ -20,6 +20,27 @@ export const tokenStorage = {
   },
 };
 
+/**
+ * Token de setup do OAuth.
+ *
+ * O backend devolve este token na URL de retorno (`?setup_token=`) em vez de
+ * num cookie, porque frontend (Vercel) e backend (Render) ficam em domínios
+ * diferentes e o cookie seria de terceiros — bloqueado por vários
+ * navegadores. Ele autentica apenas as chamadas do fluxo de cadastro
+ * (`GET /auth/setup`, `POST /paciente`, `POST /profissional`) e é descartado
+ * assim que a conta é criada.
+ *
+ * Fica em `sessionStorage`, e não em `localStorage`, porque a sua validade é
+ * a da aba: não deve sobreviver ao fechamento do navegador.
+ */
+const CHAVE_SETUP = "setupToken";
+
+export const setupTokenStorage = {
+  obter: (): string | null => sessionStorage.getItem(CHAVE_SETUP),
+  salvar: (token: string): void => sessionStorage.setItem(CHAVE_SETUP, token),
+  limpar: (): void => sessionStorage.removeItem(CHAVE_SETUP),
+};
+
 export const clinicaStorage = {
   obter: (): string | null => localStorage.getItem(CHAVE_CLINICA),
   salvar: (id: string): void => localStorage.setItem(CHAVE_CLINICA, id),
