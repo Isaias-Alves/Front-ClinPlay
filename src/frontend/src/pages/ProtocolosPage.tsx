@@ -11,11 +11,7 @@ import { BottomBar } from "@components";
 import { protocolosServices } from "@services";
 import { clinicasServices } from "@services"; // Ajuste o caminho se estiver apenas em "@services"
 import { ProtocoloResponseApi } from "@interfaces";
-
-interface ClinicaSimples {
-  id: string;
-  nome: string;
-}
+import type { ClinicaVinculo } from "@interfaces";
 
 /**
  * Componente da página de listagem de protocolos.
@@ -27,7 +23,7 @@ export function ProtocolosPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [clinicas, setClinicas] = useState<ClinicaSimples[]>([]);
+  const [clinicas, setClinicas] = useState<ClinicaVinculo[]>([]);
   const [clinicaSelecionada, setClinicaSelecionada] = useState<string>(
     location.state?.clinPlanId || "",
   );

@@ -146,8 +146,8 @@ export function ClinicaUserPage() {
           ) : (
             clinicas.map((item) => (
               <div
-                key={item.codigo}
-                onClick={() => navigate(`/clinicas/user/${item.codigo}`)}
+                key={item.clinicaId}
+                onClick={() => navigate(`/clinicas/user/${item.tag}`)}
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group animate-in fade-in slide-in-from-bottom-2 cursor-pointer hover:border-emerald-500 transition-all"
               >
                 <div className="flex items-center gap-4">
@@ -157,7 +157,7 @@ export function ClinicaUserPage() {
                   <div>
                     <h3 className="font-bold text-slate-700">{item.nome}</h3>
                     <p className="text-xs text-slate-400 font-mono">
-                      Código: {item.codigo}
+                      Código: {item.tag ?? "—"}
                     </p>
                   </div>
                 </div>

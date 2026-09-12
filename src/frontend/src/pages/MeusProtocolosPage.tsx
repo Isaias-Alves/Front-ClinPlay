@@ -70,7 +70,7 @@ export function MeusProtocolosPage() {
 
         // Com um único vínculo não há o que escolher: já seleciona.
         if (meusVinculos?.length === 1) {
-          setVinculoSelecionado(meusVinculos[0].id);
+          setVinculoSelecionado(meusVinculos[0].clinicaId);
         }
       })
       .catch((error) => {
@@ -208,8 +208,8 @@ export function MeusProtocolosPage() {
             >
               <option value="">-- Escolha uma clínica de atendimento --</option>
               {vinculos.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.clinPlan?.nome || v.nome || "Clínica de Fisioterapia"}
+                <option key={v.clinicaId} value={v.clinicaId}>
+                  {v.nome || "Clínica de Fisioterapia"}
                 </option>
               ))}
             </select>

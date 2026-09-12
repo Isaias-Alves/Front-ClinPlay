@@ -133,14 +133,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       // Validação suportando tanto a chave id quanto clinicaId (padrão do backend atual)
       const existeAinda = clinicasCarregadas.some(
-        (c) => (c.clinicaId || c.id) === salvaAnteriormente,
+        (c) => c.clinicaId === salvaAnteriormente,
       );
 
       if (salvaAnteriormente && existeAinda) {
         setClinicaSelecionadaId(salvaAnteriormente);
       } else {
-        const idParaSalvar =
-          clinicasCarregadas[0].clinicaId || clinicasCarregadas[0].id;
+        const idParaSalvar = clinicasCarregadas[0].clinicaId;
         setClinicaSelecionadaId(idParaSalvar);
         clinicaStorage.salvar(idParaSalvar);
       }

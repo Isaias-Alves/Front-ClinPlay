@@ -3,24 +3,32 @@ import { useNavigate } from "react-router-dom";
 import { FaDumbbell, FaTrash, FaPlus, FaPen, FaYoutube } from "react-icons/fa";
 import { BottomBar } from "../components/BottomBar";
 import { exerciciosServices } from "@services";
+import { useApp } from "@contexts";
 import { ExercicioInfoResponse } from "@interfaces";
-
-/** Lista os exercícios do profissional, normalizando a resposta para um array. */
-const buscarExercicios = async (): Promise<ExercicioInfoResponse[]> => {
-  const response = await exerciciosServices.listarDoProfissional();
-  return Array.isArray(response) ? response : response.data || [];
-};
+import { mensagemDeErro } from "@utils";
 
 export function TratamentosProfPage() {
   const [exercicios, setExercicios] = useState<ExercicioInfoResponse[]>([]);
-  // Já nasce carregando: a lista é buscada na montagem.
-  const [carregando, setCarregando] = useState(true);
   const navigate = useNavigate();
+  // Os exercícios pertencem à clínica, não ao profissional: a listagem é
+  // `GET /clinica/{id}/exercicios`. A rota `GET /exercicio` usada antes não
+  // existe no backend, então esta tela nunca carregou nada.
+  const { clinicaSelecionadaId, notificar } = useApp();
+
+  /** Clínica cujos exercícios já estão em memória. */
+  const [carregadosDe, setCarregadosDe] = useState<string | null>(null);
+  const [recargasPedidas, setRecargasPedidas] = useState(0);
+
+  const chave = `${clinicaSelecionadaId}|${recargasPedidas}`;
+  const carregando = Boolean(clinicaSelecionadaId) && carregadosDe !== chave;
 
   useEffect(() => {
+    if (!clinicaSelecionadaId) return;
+
     let cancelado = false;
 
-    buscarExercicios()
+    exerciciosServices
+      .listarDaClinica(clinicaSelecionadaId)
       .then((lista) => {
         if (!cancelado) setExercicios(lista);
       })
@@ -30,35 +38,28 @@ export function TratamentosProfPage() {
         setExercicios([]);
       })
       .finally(() => {
-        if (!cancelado) setCarregando(false);
+        if (!cancelado) setCarregadosDe(chave);
       });
 
     return () => {
       cancelado = true;
     };
-  }, []);
-
-  /** Recarrega a lista a pedido do usuário (após excluir, por exemplo). */
-  const recarregarExercicios = async () => {
-    setCarregando(true);
-    try {
-      setExercicios(await buscarExercicios());
-    } catch (error) {
-      console.error("Erro ao buscar exercícios", error);
-      setExercicios([]);
-    } finally {
-      setCarregando(false);
-    }
-  };
+    // `chave` deriva das duas entradas abaixo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicaSelecionadaId, recargasPedidas]);
 
   const deletarExercicio = async (id: string) => {
-    if (!window.confirm("Deseja realmente remover este exercício?")) return;
+    if (!clinicaSelecionadaId) return;
+    if (!window.confirm("Deseja remover este exercício da clínica?")) return;
     try {
-      await exerciciosServices.deletar(id);
-      alert("Exercício deletado com sucesso!");
-      await recarregarExercicios();
+      // Não existe `DELETE /exercicio/{id}`: a remoção desfaz o vínculo com
+      // a clínica.
+      await exerciciosServices.desvincularDaClinica(clinicaSelecionadaId, id);
+      notificar("Exercício removido da clínica.", "sucesso");
+      setRecargasPedidas((n) => n + 1);
     } catch (error) {
-      console.error("Erro ao deletar exercício", error);
+      console.error("Erro ao remover exercício", error);
+      notificar(mensagemDeErro(error, "Erro ao remover o exercício."), "erro");
     }
   };
 

@@ -18,8 +18,9 @@ interface SeletorPacienteProps {
 // ----------------------------------------------------------------------
 // CORREÇÃO: Função extrai rigorosamente o ID do Vínculo em vez do Paciente
 // ----------------------------------------------------------------------
-const extrairId = (p: PacienteVinculadoClinica) =>
-  p.vinculoId || p.clinPacienteId || p.id || "";
+// `ObterClinPaciente` devolve `vinculoId` e `pacienteId`, e nada mais. As
+// alternativas antigas (`clinPacienteId`, `id`) nunca existiram na resposta.
+const extrairId = (p: PacienteVinculadoClinica) => p.vinculoId;
 
 export const SeletorPaciente: React.FC<SeletorPacienteProps> = ({
   pacientes,

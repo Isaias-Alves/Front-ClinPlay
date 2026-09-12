@@ -53,7 +53,10 @@ export interface TratamentoResponseApi {
   lembreteConfig?: LembreteConfig | null;
   prescricoes?: PrescricaoView[];
 
-  // Presentes em ObterTratamento (REST), ausentes no TratamentoView (WebSocket).
+  // Campos de `ObterTratamento` — o recorte aninhado em `GET /clinica/minhas`,
+  // que identifica as partes envolvidas mas não traz descrição, datas,
+  // progresso nem prescrições. Esses só chegam pelo `TratamentoView` do
+  // WebSocket, em resposta a um `OBTER`.
   clinPacienteId?: string;
   pacienteId?: string;
   pacienteNome?: string;
@@ -63,19 +66,12 @@ export interface TratamentoResponseApi {
   profissionalNome?: string | null;
   profissionalAvatar?: string | null;
   profissionalCrefito?: string | null;
-  protocoloId?: string | null;
-
   /**
-   * Alguns endpoints aninham os dados do profissional em vez de achatá-los
-   * em `profissionalNome`/`profissionalCrefito`. Declarado como opcional
-   * enquanto os dois formatos coexistirem — a tela do paciente já fazia o
-   * fallback para este objeto, só que sem tipo nenhum.
+   * Nenhum DTO do backend devolve este campo hoje; ficou declarado porque a
+   * tela do paciente tinha um fallback para ele. Mantido opcional apenas
+   * para não quebrar essa leitura defensiva.
    */
-  profissional?: {
-    nome?: string;
-    crefito?: string;
-    avatar?: string | null;
-  } | null;
+  protocoloId?: string | null;
 }
 
 /** Espelha CadastroTratamento.java. */
@@ -105,12 +101,32 @@ export type EventoTratamento =
   | {
       evento: "FEEDBACK_CRIADO";
       progresso: number;
+      /** Dias consecutivos de adesão, recalculado a cada feedback. */
+      sequencia?: number;
       ultimaAcao?: string | null;
       feedback: FeedbackView & { prescricaoId: string };
     }
-  | { evento: "FEEDBACK_VISTO"; feedbackId: string };
+  | { evento: "FEEDBACK_VISTO"; feedbackId: string }
+  /** Resposta a `REORDENAR_PRESCRICOES`: a nova ordem, por id. */
+  | { evento: "PRESCRICOES_REORDENADAS"; ordem: string[] };
 
-/** Erro devolvido pela fila `/user/queue/erros`. */
+/**
+ * Erro devolvido pela fila `/user/queue/erros`.
+ * O backend envia um `EventoSaida` com `evento: "ERRO"`.
+ */
 export interface ErroSocket {
+  evento?: "ERRO";
   mensagem?: string;
+  codigo?: number;
 }
+
+/** Mensagens que o cliente pode enviar para `/app/tratamento/{id}`. */
+export type TipoMensagemTratamento =
+  | "OBTER"
+  | "EDITAR_TRATAMENTO"
+  | "ADICIONAR_PRESCRICAO"
+  | "REMOVER_PRESCRICAO"
+  | "EDITAR_PRESCRICAO"
+  | "REORDENAR_PRESCRICOES"
+  | "MARCAR_FEEDBACK_VISTO"
+  | "CRIAR_FEEDBACK";

@@ -118,22 +118,23 @@ export function ProtocolosFormPage() {
         // Uma espera por tipo de recurso. Antes as três promessas iam num
         // mesmo array e o `Promise.all` devolvia uma tupla sem tipo, em que
         // `resultados[1]` podia ser qualquer coisa.
-        const [todosExercicios, vinculos] = await Promise.all([
-          exerciciosServices.listarDoProfissional(),
-          clinPlanId
-            ? Promise.all([
-                clinicasServices.listarPacientes(clinPlanId),
-                clinicasServices.listarProfissionais(clinPlanId),
-              ])
-            : Promise.resolve(null),
-        ]);
+        // Exercícios, pacientes e profissionais são todos recursos da
+        // clínica: sem `clinPlanId` não há o que buscar.
+        const vinculos = clinPlanId
+          ? await Promise.all([
+              exerciciosServices.listarDaClinica(clinPlanId),
+              clinicasServices.listarPacientes(clinPlanId),
+              clinicasServices.listarProfissionais(clinPlanId),
+            ])
+          : null;
 
-        setExerciciosDisponiveis(todosExercicios || []);
+        const todosExercicios = vinculos?.[0] ?? [];
+        setExerciciosDisponiveis(todosExercicios);
 
         let profissionalVinculoId = clinProfissionalIdReal;
 
         if (vinculos) {
-          const [pacientes, profissionais] = vinculos;
+          const [, pacientes, profissionais] = vinculos;
           if (pacientes) setPacientesAtivos(pacientes);
 
           if (profissionais && profissionalCrefito) {
@@ -141,8 +142,8 @@ export function ProtocolosFormPage() {
               (p) => p.crefito === profissionalCrefito,
             );
             if (meuVinculo) {
-              profissionalVinculoId = meuVinculo.id;
-              setClinProfissionalIdReal(meuVinculo.id);
+              profissionalVinculoId = meuVinculo.vinculoId;
+              setClinProfissionalIdReal(meuVinculo.vinculoId);
             }
           }
         }
@@ -199,11 +200,17 @@ export function ProtocolosFormPage() {
       return;
     }
 
-    const pacienteDados = pacientesAtivos.find((p) => p.id === pacienteId);
+    const pacienteDados = pacientesAtivos.find(
+      (p) => p.vinculoId === pacienteId,
+    );
     if (pacienteDados) {
       setNovosPacientesVinculados((prev) => [
         ...prev,
-        { id: pacienteDados.id, nome: pacienteDados.nome, dataInicio: "" },
+        {
+          id: pacienteDados.vinculoId,
+          nome: pacienteDados.nome,
+          dataInicio: "",
+        },
       ]);
     }
   };
@@ -355,7 +362,7 @@ export function ProtocolosFormPage() {
 
   // Filtra do select de pacientes aqueles que ainda não estão em processo de novos vínculos
   const opçõesPacientesDisponiveis = pacientesAtivos.filter(
-    (pa) => !novosPacientesVinculados.some((np) => np.id === pa.id),
+    (pa) => !novosPacientesVinculados.some((np) => np.id === pa.vinculoId),
   );
 
   if (carregandoDados) {
@@ -438,7 +445,7 @@ export function ProtocolosFormPage() {
                 -- Escolha um paciente para adicionar à lista --
               </option>
               {opçõesPacientesDisponiveis.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option key={p.vinculoId} value={p.vinculoId}>
                   {p.nome}
                 </option>
               ))}
@@ -505,7 +512,7 @@ export function ProtocolosFormPage() {
                 {tratamentosExistentes.map((tratamiento) => {
                   const pacienteNome =
                     pacientesAtivos.find(
-                      (p) => p.id === tratamiento.clinPacienteId,
+                      (p) => p.vinculoId === tratamiento.clinPacienteId,
                     )?.nome || "Paciente Vinculado";
                   return (
                     <div

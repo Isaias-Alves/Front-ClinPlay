@@ -91,6 +91,7 @@ function salaReducer(estado: EstadoSala, evento: EventoTratamento): EstadoSala {
           ? {
               ...estado.tratamento,
               progresso: evento.progresso,
+              sequencia: evento.sequencia ?? estado.tratamento.sequencia,
               ultimaAcao: evento.ultimaAcao,
               prescricoes: prescricoesDe(estado.tratamento).map((p) =>
                 p.id === evento.feedback.prescricaoId
@@ -103,6 +104,28 @@ function salaReducer(estado: EstadoSala, evento: EventoTratamento): EstadoSala {
             }
           : null,
       };
+    case "PRESCRICOES_REORDENADAS": {
+      // O backend emite só a nova ordem de ids. Sem tratar este caso, a lista
+      // continuava na ordem antiga até o próximo OBTER.
+      if (!estado.tratamento) return estado;
+
+      const porId = new Map(
+        prescricoesDe(estado.tratamento).map((p) => [p.id, p]),
+      );
+
+      const reordenadas = evento.ordem
+        .map((id, indice) => {
+          const p = porId.get(id);
+          return p ? { ...p, ordem: indice } : null;
+        })
+        .filter((p): p is PrescricaoView => p !== null);
+
+      return {
+        ...estado,
+        tratamento: { ...estado.tratamento, prescricoes: reordenadas },
+      };
+    }
+
     case "FEEDBACK_VISTO":
       return {
         ...estado,

@@ -31,7 +31,7 @@ export function ClinicaDetalhesPage() {
   const navigate = useNavigate();
   const { clinicas, notificar, refreshData } = useApp();
 
-  const clinica = clinicas.find((c) => (c.clinicaId || c.id) === id);
+  const clinica = clinicas.find((c) => c.clinicaId === id);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,7 +65,7 @@ export function ClinicaDetalhesPage() {
 
     setIsSubmitting(true);
     try {
-      const idDaClinica = clinica.clinicaId || clinica.id;
+      const idDaClinica = clinica.clinicaId;
 
       const payload = {
         nome: data.nome,

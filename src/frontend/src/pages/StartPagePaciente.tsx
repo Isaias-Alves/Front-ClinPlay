@@ -394,14 +394,11 @@ export function StartPagePaciente() {
                                 <h3 className="text-sm font-bold text-slate-700 truncate">
                                   Dr(a).{" "}
                                   {tratamento.profissionalNome ||
-                                    // AQUI TAMBÉM FAZEMOS FALLBACK SE VIER DENTRO DE UM OBJETO:
-                                    tratamento.profissional?.nome ||
                                     "Não atribuído"}
                                 </h3>
                                 <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mt-0.5 truncate">
-                                  {tratamento.profissionalCrefito ||
-                                  tratamento.profissional?.crefito
-                                    ? `CREFITO: ${tratamento.profissionalCrefito || tratamento.profissional?.crefito}`
+                                  {tratamento.profissionalCrefito
+                                    ? `CREFITO: ${tratamento.profissionalCrefito}`
                                     : "Profissional Responsável"}
                                 </h4>
                               </div>

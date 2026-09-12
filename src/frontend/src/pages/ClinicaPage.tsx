@@ -185,10 +185,8 @@ export function ClinicaPage() {
           ) : (
             clinicas.map((item) => (
               <div
-                key={item.codigo}
-                onClick={() =>
-                  navigate(`/clinicas/${item.clinicaId || item.id}`)
-                }
+                key={item.clinicaId}
+                onClick={() => navigate(`/clinicas/${item.clinicaId}`)}
                 className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between group animate-in fade-in slide-in-from-bottom-2 cursor-pointer hover:border-emerald-500 transition-all"
               >
                 <div className="flex items-center gap-4">
@@ -198,21 +196,26 @@ export function ClinicaPage() {
                   <div>
                     <h3 className="font-bold text-slate-700">{item.nome}</h3>
                     <p className="text-xs text-slate-400 font-mono">
-                      Código: {item.codigo}
+                      Código: {item.tag ?? "—"}
                     </p>
-                    <div className="text-xs text-slate-500 mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
-                      <span>Profissionais: {item.maxProfissionais}</span>
-                      <span>Pacientes: {item.maxPacientes}</span>
-                      <span>Protocolos: {item.maxProtocolos}</span>
-                      <span>Exercícios: {item.maxExercicios}</span>
-                    </div>
+                    {/*
+                      `GET /clinica/minhas` devolve o plano contratado, não os
+                      limites: `maxProfissionais` e afins pertencem ao `Plano`
+                      (`GET /plano`) e chegavam sempre `undefined` aqui.
+                    */}
+                    {item.planoNome && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        Plano: {item.planoNome}
+                        {item.planoStatus ? ` (${item.planoStatus})` : ""}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1">
                   <button
                     onClick={(e) =>
-                      item.codigo && handleVincularClinica(e, item.codigo)
+                      item.tag && handleVincularClinica(e, item.tag)
                     }
                     className="p-3 text-slate-300 hover:text-blue-600 rounded-xl transition-all"
                     title="Vincular à clínica"
@@ -222,7 +225,7 @@ export function ClinicaPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/clinicas/${item.clinicaId || item.id}`);
+                      navigate(`/clinicas/${item.clinicaId}`);
                     }}
                     className="p-3 text-slate-300 hover:text-emerald-600 rounded-xl transition-all"
                   >
@@ -231,7 +234,7 @@ export function ClinicaPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      deletarClinica(item.id);
+                      deletarClinica(item.clinicaId);
                     }}
                     className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
                   >

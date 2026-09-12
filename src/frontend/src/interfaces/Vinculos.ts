@@ -1,4 +1,3 @@
-import type { Clinica, ContagensClinica } from "./Clinicas";
 import type { TratamentoResponseApi } from "./Tratamentos";
 
 /**
@@ -33,31 +32,46 @@ export type PermissoesRequest = Required<Record<ChavePermissao, boolean>>;
  * usado no backend — daí o `clinicaId` opcional e o padrão `clinicaId ?? id`
  * espalhado pelas telas.
  */
-export interface ClinicaVinculo extends Partial<Clinica>, ContagensClinica {
-  id: string;
-  clinicaId?: string;
-  nome: string;
+export interface ClinicaVinculo {
+  /**
+   * Identificador da clínica. O DTO `ObterClinicasUsuario` chama o campo de
+   * `clinicaId` — não existe `id` nesta resposta. O `id` opcional continua
+   * declarado só porque algumas telas ainda leem `clinicaId ?? id`.
+   */
+  clinicaId: string;
+  id?: string;
 
-  // Dados cadastrais da clínica. Opcionais porque o recorte devolvido muda
-  // conforme o perfil: o paciente não recebe CNPJ nem limites do plano.
+  nome: string;
+  /**
+   * Código público da clínica, usado para solicitar vínculo. No backend o
+   * campo chama-se `tag`; o frontend chamava de `codigo`, que não existe em
+   * nenhuma resposta — daí links e verificações de vínculo silenciosamente
+   * quebrados.
+   */
   tag?: string;
   cnpj?: string;
   especialidade?: string;
   uf?: string;
   cidade?: string;
 
-  /** Plano contratado da clínica, quando o endpoint o aninha. */
-  clinPlan?: { id?: string; nome?: string } | null;
+  /**
+   * Plano contratado. O backend devolve estes dois campos achatados; não há
+   * objeto `clinPlan` nem os limites `max*` — esses pertencem ao `Plano`
+   * (`GET /plano`), não ao vínculo.
+   */
+  planoNome?: string | null;
+  planoStatus?: string | null;
 
-  /** Presente para o profissional. */
+  /** Presente só para o profissional. */
   permissoes?: PermissoesClinica;
-  /** Presente para o paciente: os tratamentos dele naquela clínica. */
+  /** Tratamentos do usuário naquela clínica (recorte `ObterTratamento`). */
   tratamentos?: TratamentoResponseApi[];
 }
 
 /** Profissional vinculado a uma clínica (GET /clinica/{id}/profissionais). */
 export interface ProfissionalVinculado extends PermissoesClinica {
-  id: string;
+  /** Id do vínculo (`ObterClinProfissional.vinculoId`). Não existe `id`. */
+  vinculoId: string;
   profissionalId: string;
   nome: string;
   avatar?: string | null;
@@ -65,23 +79,23 @@ export interface ProfissionalVinculado extends PermissoesClinica {
   especialidade?: string;
   email?: string;
   telefone?: string;
+  nascimento?: string;
+  conselhoNome?: string;
+  conselhoNumero?: string;
+  conselhoUf?: string;
 }
 
 /** Paciente vinculado a uma clínica (GET /clinica/{id}/pacientes). */
 export interface PacienteVinculadoClinica {
-  id: string;
+  /** Id do vínculo (`ObterClinPaciente.vinculoId`). Não existe `id`. */
+  vinculoId: string;
   pacienteId: string;
-  /**
-   * Id do vínculo em si, usado para desvincular e para prescrever. Chega com
-   * dois nomes conforme o endpoint, daí os dois campos.
-   */
-  vinculoId?: string;
-  clinPacienteId?: string;
   nome: string;
   avatar?: string | null;
   cpf?: string;
   email?: string;
   telefone?: string;
+  nascimento?: string;
 }
 
 /** Campos comuns a qualquer solicitação pendente. */
@@ -137,4 +151,6 @@ export type EventoSolicitacoes =
       evento: "SOLICITACAO_RESPONDIDA";
       tipo: TipoSolicitacao;
       solicitacaoId: string;
+      /** `APROVADA` ou `RECUSADA`. */
+      situacao?: string;
     };

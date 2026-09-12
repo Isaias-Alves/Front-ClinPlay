@@ -8,7 +8,9 @@ import type { ClinicaVinculo } from "@interfaces";
 /** Verifica se o paciente já está vinculado à clínica de um dado código. */
 const verificarVinculo = async (codigo: string): Promise<boolean> => {
   const minhasClinicas = await clinicasServices.buscarMinhasClinicas();
-  return minhasClinicas.some((c) => c.codigo === codigo);
+  // O código público da clínica é `tag` no backend; `codigo` não existe,
+  // então esta verificação devolvia `false` sempre.
+  return minhasClinicas.some((c) => c.tag === codigo);
 };
 
 export function ClinicaUserDetalhesPage() {
@@ -136,7 +138,7 @@ export function ClinicaUserDetalhesPage() {
                   Código
                 </p>
                 <p className="text-sm font-bold text-slate-700 mt-0.5">
-                  {clinicaData?.codigo || "Não disponível"}
+                  {clinicaData?.tag || "Não disponível"}
                 </p>
               </div>
 

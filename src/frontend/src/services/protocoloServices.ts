@@ -6,6 +6,19 @@ import { ProtocoloRequestApi, ProtocoloResponseApi } from "@interfaces";
  * anteriores só adicionavam ruído. Renovação de token é feita pelo interceptor
  * em `http.ts` e a mensagem para o usuário é montada na camada de UI.
  */
+/**
+ * Protocolos.
+ *
+ * ATENÇÃO: NÃO EXISTE módulo de protocolos no backend. Uma busca por
+ * "protocolo" em todo o `ClinPlaY_API` não retorna nada — não há
+ * controller, entidade nem tabela. Todas as chamadas abaixo respondem 404.
+ *
+ * As telas que dependem disto (`ProtocolosPage`, `ProtocolosFormPage`,
+ * `ProtocoloDetalhesPage` e a aba "missões" de `MeusProtocolosPage`) não
+ * funcionam até o recurso ser implementado no servidor. O serviço foi
+ * mantido, e não removido, para que a decisão de cortar ou implementar a
+ * funcionalidade seja de quem toca o produto.
+ */
 export const protocolosServices = {
   /** GET /protocolo/{id} */
   buscarPorId: async (id: string): Promise<ProtocoloResponseApi> => {

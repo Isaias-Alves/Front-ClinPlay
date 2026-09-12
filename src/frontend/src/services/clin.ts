@@ -57,9 +57,9 @@ export const clinicasServices = {
   },
 
   /**
-   * DELETE /clinica/{clinicaId}
-   * NOTA: o ClinicaController ainda não expõe esta rota; a chamada retornará
-   * 404 até o endpoint ser implementado no backend.
+   * INEXISTENTE no backend (404).
+   * Confirmado: o `ClinicaController` tem `PUT /clinica/{id}` mas nenhum
+   * `DELETE`. Clínicas são desativadas pelo campo `ativo`, sem rota exposta.
    */
   deletarClinica: async (clinicaId: string) => {
     const { data } = await api.delete(`/clinica/${clinicaId}`);
