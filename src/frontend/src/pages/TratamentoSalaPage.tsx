@@ -150,7 +150,7 @@ export function TratamentoSalaPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { clinicaSelecionadaId, notificar } = useApp();
+  const { clinicaSelecionadaId, confirmar, notificar } = useApp();
 
   const tratamentoBase = location.state?.tratamentoBase;
 
@@ -193,9 +193,12 @@ export function TratamentoSalaPage() {
   const handleFinalizarTratamento = async () => {
     if (!id) return;
     if (
-      !window.confirm(
-        "Tem certeza que deseja finalizar este tratamento? O paciente não poderá mais realizar exercícios vinculados a este protocolo.",
-      )
+      !(await confirmar({
+        mensagem:
+          "Tem certeza que deseja finalizar este tratamento? O paciente não poderá mais realizar exercícios vinculados a este protocolo.",
+        rotuloConfirmar: "Finalizar",
+        destrutivo: true,
+      }))
     )
       return;
     setIsFinalizando(true);
@@ -261,8 +264,14 @@ export function TratamentoSalaPage() {
     setIsModalOpen(false);
   };
 
-  const handleRemoverPrescricao = (prescricaoId: string) => {
-    if (confirm("Tem a certeza que deseja remover esta prescrição?")) {
+  const handleRemoverPrescricao = async (prescricaoId: string) => {
+    if (
+      await confirmar({
+        mensagem: "Tem a certeza que deseja remover esta prescrição?",
+        rotuloConfirmar: "Remover",
+        destrutivo: true,
+      })
+    ) {
       enviar({ tipo: "REMOVER_PRESCRICAO", prescricaoId });
     }
   };
@@ -294,7 +303,7 @@ export function TratamentoSalaPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 relative overflow-hidden">
+    <div className="min-h-dvh bg-slate-50 pb-20 relative overflow-hidden">
       {/* BACKGROUND GAMIFICADO COM ESFERAS E GRID */}
       <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
       <div className="fixed top-[-10%] left-[-5%] w-96 h-96 bg-emerald-400/20 rounded-full mix-blend-multiply filter blur-[100px] animate-pulse pointer-events-none z-0"></div>

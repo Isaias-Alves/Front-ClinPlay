@@ -61,7 +61,7 @@ export function ConfiguracoesPage() {
   const [modoEscuro, setModoEscuro] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-dvh bg-slate-50 pb-20">
       {/* HEADER DE FUNDO */}
       <div className="bg-slate-900 h-64 w-full relative rounded-b-[40px] shadow-lg">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-b-[40px]">

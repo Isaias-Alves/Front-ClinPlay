@@ -7,3 +7,4 @@ export * from "./especialidades";
 export * from "./timeUtils";
 export * from "./animations";
 export * from "./formatacao";
+export * from "./youtube";

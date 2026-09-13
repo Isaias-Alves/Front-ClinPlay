@@ -84,13 +84,14 @@ type AbaId = "tratamentos" | "exercicios" | "pacientes" | "equipe";
 export function StartPageProfissional() {
   const navigate = useNavigate();
   const {
-    usuario,
-    clinicas,
     clinicaSelecionadaId,
+    clinicas,
+    confirmar,
+    logout,
+    notificar,
     setClinicaSelecionadaId,
     tipoUsuario,
-    notificar,
-    logout,
+    usuario,
   } = useApp();
 
   const [isBuscaClinicaOpen, setIsBuscaClinicaOpen] = useState(false);
@@ -386,7 +387,14 @@ export function StartPageProfissional() {
     nome: string,
   ) => {
     if (!clinicaSelecionadaId) return;
-    if (!window.confirm(`Deseja realmente remover ${nome} da clínica?`)) return;
+    if (
+      !(await confirmar({
+        mensagem: `Deseja realmente remover ${nome} da clínica?`,
+        rotuloConfirmar: "Remover",
+        destrutivo: true,
+      }))
+    )
+      return;
     try {
       await clinicasServices.deletarProfissionalVinculado(
         clinicaSelecionadaId,
@@ -404,7 +412,13 @@ export function StartPageProfissional() {
 
   const handleRemoverPaciente = async (pacienteId: string, nome: string) => {
     if (!clinicaSelecionadaId) return;
-    if (!window.confirm(`Deseja realmente desvincular o paciente ${nome}?`))
+    if (
+      !(await confirmar({
+        mensagem: `Deseja realmente desvincular o paciente ${nome}?`,
+        rotuloConfirmar: "Desvincular",
+        destrutivo: true,
+      }))
+    )
       return;
     try {
       await clinicasServices.deletarPacienteVinculado(
@@ -533,7 +547,7 @@ export function StartPageProfissional() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 relative">
+    <div className="min-h-dvh bg-slate-50 pb-20 relative">
       <div className="pt-4 px-4 sm:px-6">
         <Header
           clinicas={clinicas}

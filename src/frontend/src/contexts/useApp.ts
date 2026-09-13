@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import type { PedidoConfirmacao } from "@components/ConfirmacaoModal";
 import type {
   ClinicaVinculo,
   PacienteInfoResponse,
@@ -33,6 +34,12 @@ export interface AppContextData {
   isLoadingGlobal: boolean;
   refreshData: () => Promise<void>;
   notificar: (mensagem: string, tipo: "sucesso" | "erro") => void;
+  /**
+   * Pede confirmação ao usuário. Substitui o `window.confirm`, que trava a
+   * thread principal e aparece com a interface do navegador.
+   * @returns `true` se confirmou, `false` se cancelou ou fechou.
+   */
+  confirmar: (pedido: PedidoConfirmacao | string) => Promise<boolean>;
   logout: () => Promise<void>;
 }
 

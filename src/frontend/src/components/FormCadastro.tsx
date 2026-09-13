@@ -171,6 +171,7 @@ function FormCadastro() {
               render={({ field: { onChange, value, ref } }) => (
                 <PatternFormat
                   format="##/##/####"
+                  inputMode="numeric"
                   mask="_"
                   value={value}
                   onValueChange={(values) => onChange(values.formattedValue)}
@@ -205,6 +206,7 @@ function FormCadastro() {
               render={({ field: { onChange, value, ref } }) => (
                 <PatternFormat
                   format="(##) # ####-####"
+                  inputMode="numeric"
                   mask="_"
                   value={value}
                   onValueChange={(values) => onChange(values.value)}
@@ -246,6 +248,7 @@ function FormCadastro() {
                     <FaRegIdCard className="absolute left-4 text-slate-400 text-lg" />
                     <PatternFormat
                       format="###.###.###-##"
+                      inputMode="numeric"
                       mask="_"
                       value={value as string}
                       onValueChange={(values) => onChange(values.value)}

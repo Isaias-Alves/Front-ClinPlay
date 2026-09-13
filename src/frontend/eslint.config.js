@@ -50,7 +50,7 @@ export default defineConfig([
   },
   {
     // Service worker: escopo próprio (`self`, `importScripts`, `clients`).
-    files: ["public/*-sw.js"],
+    files: ["public/sw.js", "public/*-sw.js"],
     languageOptions: { globals: globals.serviceworker },
   },
   ...storybook.configs["flat/recommended"],

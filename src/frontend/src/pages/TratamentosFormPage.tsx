@@ -110,7 +110,7 @@ export function TratamentosFormPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20 p-4 sm:p-8 relative overflow-hidden">
+    <div className="min-h-dvh bg-slate-50/50 pb-20 p-4 sm:p-8 relative overflow-hidden">
       {/* Efeitos de Fundo Gamificados */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-emerald-400/10 rounded-full mix-blend-multiply filter blur-3xl opacity-50 pointer-events-none"></div>
 

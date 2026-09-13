@@ -353,6 +353,7 @@ export const ModalPrescreverExercicio: React.FC<
                             </label>
                             <input
                               type="number"
+                              inputMode="decimal"
                               step={campo.step}
                               value={formPrescricao[campo.key]}
                               onChange={(e) =>
@@ -374,6 +375,7 @@ export const ModalPrescreverExercicio: React.FC<
                           </label>
                           <input
                             type="number"
+                            inputMode="decimal"
                             value={formPrescricao.diasInativo}
                             onChange={(e) =>
                               setFormPrescricao({
@@ -394,6 +396,7 @@ export const ModalPrescreverExercicio: React.FC<
                           </label>
                           <PatternFormat
                             format="##:##"
+                            inputMode="numeric"
                             mask="_"
                             value={formPrescricao.tempoInativo}
                             onValueChange={(values) =>

@@ -32,7 +32,7 @@
       ]
     },
     {
-      "source": "/firebase-messaging-sw.js",
+      "source": "/sw.js",
       "headers": [
         {
           "key": "Cache-Control",
@@ -41,6 +41,15 @@
         {
           "key": "Service-Worker-Allowed",
           "value": "/"
+        }
+      ]
+    },
+    {
+      "source": "/manifest.webmanifest",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/manifest+json"
         }
       ]
     }

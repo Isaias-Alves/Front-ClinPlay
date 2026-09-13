@@ -3,7 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { FiAward, FiCheck, FiPause, FiPlay, FiStar, FiX } from "react-icons/fi";
 import { useApp } from "@contexts";
-import { useTratamentoSocket } from "@hooks";
+import { useManterTelaAcesa, useTratamentoSocket } from "@hooks";
 import { normalizarConfig, obterJogo, useMotorExercicio } from "@games";
 import type { PrescricaoView } from "@interfaces";
 
@@ -23,7 +23,7 @@ export function ExercicioJogarPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { jogo: jogoDaUrl } = useParams<{ jogo: string }>();
-  const { notificar } = useApp();
+  const { confirmar, notificar } = useApp();
 
   const prescricao = location.state?.prescricao as PrescricaoView | undefined;
   const tratamentoId = location.state?.tratamentoId as string | undefined;
@@ -44,6 +44,11 @@ export function ExercicioJogarPage() {
   const config = normalizarConfig(prescricao?.customizacao);
   const { estado, alternarPausa } = useMotorExercicio(config);
   const { fase, tempoRestante, serieAtual, repAtual, pausado } = estado;
+
+  // O paciente acompanha o motor visual sem tocar no aparelho: sem isto a
+  // tela apaga no meio da série. Liberado ao concluir ou ao pausar, para
+  // não segurar a tela acesa à toa.
+  useManterTelaAcesa(sessaoValida && fase !== "CONCLUIDO" && !pausado);
 
   const [avaliacao, setAvaliacao] = useState(0);
   const [comentario, setComentario] = useState("");
@@ -69,14 +74,14 @@ export function ExercicioJogarPage() {
         ? config.acaoSecundaria
         : (TEXTO_DA_FASE[fase] ?? "");
 
-  const handleSair = () => {
-    if (
-      confirm(
+  const handleSair = async () => {
+    const sair = await confirmar({
+      mensagem:
         "Deseja interromper o exercício? O seu progresso atual não será guardado.",
-      )
-    ) {
-      navigate(-1);
-    }
+      rotuloConfirmar: "Interromper",
+      destrutivo: true,
+    });
+    if (sair) navigate(-1);
   };
 
   const handleEnviarFeedback = () => {

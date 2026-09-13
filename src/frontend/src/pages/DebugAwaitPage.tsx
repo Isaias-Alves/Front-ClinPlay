@@ -12,7 +12,7 @@ export function DebugAwaitPage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-6 text-center">
+    <div className="flex flex-col items-center justify-center min-h-dvh bg-slate-50 p-6 text-center">
       <div className="bg-white p-10 rounded-3xl shadow-lg border border-slate-200 max-w-md">
         <LuConstruction className="text-6xl text-yellow-500 mx-auto mb-6" />
 

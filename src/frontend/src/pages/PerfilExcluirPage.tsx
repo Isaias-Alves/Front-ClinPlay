@@ -44,7 +44,7 @@ export function PerfilExcluirPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       <header className="bg-white px-6 py-8 shadow-sm border-b border-slate-200">
         <div className="max-w-md mx-auto flex items-center gap-4">
           <button

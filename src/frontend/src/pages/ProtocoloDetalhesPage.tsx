@@ -10,6 +10,7 @@ import { BottomBar } from "@components";
 import { protocolosServices } from "@services";
 import { exerciciosServices } from "@services";
 import { ProtocoloResponseApi, ExercicioInfoResponse } from "@interfaces";
+import { useApp } from "@contexts";
 
 const BADGE_CORES: Record<string, string> = {
   Alongamento: "bg-blue-50 text-blue-600",
@@ -27,6 +28,7 @@ const BADGE_CORES: Record<string, string> = {
  * @returns {JSX.Element} A página de detalhes.
  */
 export function ProtocoloDetalhesPage() {
+  const { notificar } = useApp();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -78,7 +80,10 @@ export function ProtocoloDetalhesPage() {
       } catch (error) {
         if (cancelado) return;
         console.error("Erro ao carregar dados do protocolo", error);
-        alert("Não foi possível carregar os detalhes do protocolo.");
+        notificar(
+          "Não foi possível carregar os detalhes do protocolo.",
+          "erro",
+        );
       } finally {
         if (!cancelado) setDadosDe(id);
       }
@@ -93,7 +98,7 @@ export function ProtocoloDetalhesPage() {
 
   if (carregando || !protocolo) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-dvh bg-slate-50 flex items-center justify-center">
         <p className="text-slate-400 text-sm">
           Carregando detalhes do protocolo...
         </p>
@@ -102,7 +107,7 @@ export function ProtocoloDetalhesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       {/* Header */}
       <header className="bg-white px-6 pt-10 pb-4 shadow-sm border-b border-slate-200">
         <div className="max-w-md mx-auto flex items-center justify-between">

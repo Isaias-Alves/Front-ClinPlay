@@ -22,7 +22,11 @@ import { mensagemDeErro } from "@utils";
 export function PerfilEditarPage() {
   const navigate = useNavigate();
   // 1. Puxamos os dados exatos e atualizados do contexto (sem depender de localStorage falho)
-  const { usuario: usuarioLogado, tipoUsuario: tipoLogado } = useApp();
+  const {
+    notificar,
+    tipoUsuario: tipoLogado,
+    usuario: usuarioLogado,
+  } = useApp();
 
   const [carregando, setCarregando] = useState(false);
 
@@ -115,10 +119,10 @@ export function PerfilEditarPage() {
         await pacienteServices.atualizar(payload);
       }
 
-      alert("Perfil atualizado com sucesso!");
+      notificar("Perfil atualizado com sucesso!", "sucesso");
       window.location.href = "/perfil"; // Redireciona e recarrega a página ao mesmo tempo para obter os novos dados
     } catch (error) {
-      alert(mensagemDeErro(error, "Erro ao atualizar o perfil."));
+      notificar(mensagemDeErro(error, "Erro ao atualizar o perfil."), "erro");
     } finally {
       setCarregando(false);
     }
@@ -127,14 +131,14 @@ export function PerfilEditarPage() {
   // Se por algum motivo não carregou o usuário do contexto, mostra tela de loading
   if (!usuarioLogado) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-dvh bg-slate-50 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       {/* HEADER DE FUNDO */}
       <div className="bg-slate-900 h-64 w-full relative rounded-b-[40px] shadow-lg">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-b-[40px]">

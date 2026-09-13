@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   authServices,
@@ -12,6 +12,10 @@ import {
 // gerava avisos de ordem de execução no bundle final.
 import LogotipoClinPlay from "../components/LogotipoClinPlay";
 import { NotificacaoModal } from "../components/NotificacaoModal";
+import {
+  ConfirmacaoModal,
+  type PedidoConfirmacao,
+} from "../components/ConfirmacaoModal";
 import { solicitarTokenFirebase } from "../firebase"; // Injeção do Firebase
 import type { ClinicaVinculo } from "@interfaces";
 import {
@@ -63,6 +67,35 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     },
     [],
   );
+
+  /**
+   * Confirmação pendente. A promise fica guardada numa ref e só resolve
+   * quando o usuário responde — é isso que permite manter a leitura
+   * `if (await confirmar(...))` nas telas, igual ao `window.confirm`, sem
+   * o diálogo nativo.
+   */
+  const [confirmacao, setConfirmacao] = useState<PedidoConfirmacao | null>(
+    null,
+  );
+  const resolverConfirmacao = useRef<((ok: boolean) => void) | null>(null);
+
+  const confirmar = useCallback(
+    (pedido: PedidoConfirmacao | string): Promise<boolean> => {
+      setConfirmacao(
+        typeof pedido === "string" ? { mensagem: pedido } : pedido,
+      );
+      return new Promise<boolean>((resolve) => {
+        resolverConfirmacao.current = resolve;
+      });
+    },
+    [],
+  );
+
+  const responderConfirmacao = useCallback((ok: boolean) => {
+    setConfirmacao(null);
+    resolverConfirmacao.current?.(ok);
+    resolverConfirmacao.current = null;
+  }, []);
 
   const fecharNotificacao = useCallback(() => {
     setNotificacao((prev) => (prev ? { ...prev, isOpen: false } : null));
@@ -213,7 +246,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   if (carregandoGlobal) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 relative overflow-hidden">
+      <div className="flex flex-col items-center justify-center min-h-dvh bg-slate-50 relative overflow-hidden">
         <LogotipoClinPlay mt="mt-0" mb="mb-0" />
         <div className="flex flex-col items-center gap-3 mt-6">
           <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
@@ -237,9 +270,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         isLoadingGlobal: carregandoGlobal,
         refreshData: carregarDadosGlobais,
         notificar,
+        confirmar,
         logout,
       }}
     >
+      <ConfirmacaoModal
+        isOpen={Boolean(confirmacao)}
+        mensagem={confirmacao?.mensagem ?? ""}
+        rotuloConfirmar={confirmacao?.rotuloConfirmar}
+        destrutivo={confirmacao?.destrutivo}
+        onConfirmar={() => responderConfirmacao(true)}
+        onCancelar={() => responderConfirmacao(false)}
+      />
       {notificacao && (
         <NotificacaoModal
           isOpen={notificacao.isOpen}

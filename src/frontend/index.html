@@ -8,11 +8,29 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="theme-color" content="#10b981" />
-    <meta name="mobile-web-app-capable" content="yes" />
     <meta
       name="description"
       content="ClinPlaY — plataforma de biofeedback gamificado para tratamentos de fisioterapia."
     />
+
+    <!-- PWA: torna o app instalável na tela inicial. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!--
+      iOS ignora o manifest para instalação: o Safari lê estas meta tags.
+      Sem `apple-touch-icon` o atalho vira uma miniatura da página; sem
+      `apple-mobile-web-app-capable` o app abre dentro do Safari, com a barra
+      de endereço ocupando a tela.
+    -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="ClinPlaY" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
     <title>ClinPlaY</title>
   </head>
   <body>

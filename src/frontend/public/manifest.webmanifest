@@ -1,0 +1,46 @@
+{
+  "name": "ClinPlaY — Fisioterapia Gamificada",
+  "short_name": "ClinPlaY",
+  "description": "Plataforma de biofeedback gamificado para tratamentos de fisioterapia pélvica.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#10b981",
+  "categories": ["health", "medical", "fitness"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Meus exercícios",
+      "short_name": "Exercícios",
+      "description": "Ir direto para os exercícios do dia",
+      "url": "/inicio"
+    },
+    {
+      "name": "Minhas missões",
+      "short_name": "Missões",
+      "url": "/missoes"
+    }
+  ]
+}

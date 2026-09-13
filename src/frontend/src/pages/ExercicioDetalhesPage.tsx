@@ -13,6 +13,8 @@ import {
   FiPlay,
 } from "react-icons/fi";
 import { useApp } from "@contexts";
+import { VideoExercicio } from "@components";
+import { extrairIdYoutube } from "@utils";
 
 interface ExercicioFormData {
   nome: string;
@@ -75,22 +77,14 @@ export function ExercicioDetalhesPage() {
     setIsEditing(false);
   };
 
-  const obterIdVideo = (url: string) => {
-    if (!url) return null;
-    const regExp =
-      /^.*((youtu\.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-    const match = url.match(regExp);
-    return match && match[7] && match[7].length === 11 ? match[7] : null;
-  };
-
   const currentFormValues = watch();
-  const videoId = obterIdVideo(currentFormValues.videoUrl || "");
+  const videoId = extrairIdYoutube(currentFormValues.videoUrl);
 
   // Se estiver sem dados na memória (antes do useEffect redirecionar), não renderiza nada para não quebrar
   if (!exercicioDaMemoria) return null;
 
   return (
-    <div className="min-h-screen bg-slate-100/50 pb-20 relative overflow-hidden">
+    <div className="min-h-dvh bg-slate-100/50 pb-20 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-64 bg-slate-900 rounded-b-[40px] z-0"></div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-8 relative z-10">
@@ -223,15 +217,7 @@ export function ExercicioDetalhesPage() {
                   </h3>
                   {videoId ? (
                     <div className="overflow-hidden rounded-2xl shadow-sm border border-slate-200 bg-black aspect-video">
-                      <iframe
-                        width="100%"
-                        height="100%"
-                        src={`https://www.youtube.com/embed/${videoId}`}
-                        title="YouTube video player"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
+                      <VideoExercicio url={currentFormValues.videoUrl} />
                     </div>
                   ) : (
                     <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-8 text-center text-sm font-medium text-slate-400 aspect-video flex flex-col items-center justify-center">
@@ -309,6 +295,7 @@ export function ExercicioDetalhesPage() {
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           {...register("configPadrao.vezes")}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
@@ -319,6 +306,7 @@ export function ExercicioDetalhesPage() {
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           {...register("configPadrao.repeticoes")}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
@@ -329,6 +317,7 @@ export function ExercicioDetalhesPage() {
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.1"
                           {...register("configPadrao.tempoAcao")}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
@@ -340,6 +329,7 @@ export function ExercicioDetalhesPage() {
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.1"
                           {...register("configPadrao.tempoSub")}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
@@ -351,6 +341,7 @@ export function ExercicioDetalhesPage() {
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.1"
                           {...register("configPadrao.tempoDescanso")}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
@@ -362,6 +353,7 @@ export function ExercicioDetalhesPage() {
                         </label>
                         <input
                           type="number"
+                          inputMode="decimal"
                           step="0.1"
                           {...register("configPadrao.tempoIntervalo")}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"

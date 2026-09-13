@@ -13,7 +13,7 @@ export function TratamentosProfPage() {
   // Os exercícios pertencem à clínica, não ao profissional: a listagem é
   // `GET /clinica/{id}/exercicios`. A rota `GET /exercicio` usada antes não
   // existe no backend, então esta tela nunca carregou nada.
-  const { clinicaSelecionadaId, notificar } = useApp();
+  const { clinicaSelecionadaId, confirmar, notificar } = useApp();
 
   /** Clínica cujos exercícios já estão em memória. */
   const [carregadosDe, setCarregadosDe] = useState<string | null>(null);
@@ -50,7 +50,14 @@ export function TratamentosProfPage() {
 
   const deletarExercicio = async (id: string) => {
     if (!clinicaSelecionadaId) return;
-    if (!window.confirm("Deseja remover este exercício da clínica?")) return;
+    if (
+      !(await confirmar({
+        mensagem: "Deseja remover este exercício da clínica?",
+        rotuloConfirmar: "Remover",
+        destrutivo: true,
+      }))
+    )
+      return;
     try {
       // Não existe `DELETE /exercicio/{id}`: a remoção desfaz o vínculo com
       // a clínica.
@@ -64,7 +71,7 @@ export function TratamentosProfPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       <header className="bg-white px-6 py-8 shadow-sm border-b border-slate-200">
         <div className="max-w-md mx-auto">
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">

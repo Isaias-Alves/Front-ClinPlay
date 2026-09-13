@@ -6,6 +6,9 @@ import { SwitchTipo } from "./SwitchTipo";
 import Header from "./Header";
 import { BottomBar } from "./BottomBar";
 import { NotificacaoModal } from "./NotificacaoModal";
+import { ConfirmacaoModal } from "./ConfirmacaoModal";
+import { VideoExercicio } from "./VideoExercicio";
+
 import { BuscarClinicaModal } from "./BuscarClinicaModal";
 import { SeletorPaciente } from "./SeletorPaciente";
 import { ModalPrescreverExercicio } from "./ModalPrescreverExercicio";
@@ -21,6 +24,8 @@ export {
   Header,
   BottomBar,
   NotificacaoModal,
+  ConfirmacaoModal,
+  VideoExercicio,
   BuscarClinicaModal,
   SeletorPaciente,
   ModalPrescreverExercicio,

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { BottomBar } from "../components/BottomBar";
 import { clinicasServices } from "@services";
 import type { ClinicaVinculo } from "@interfaces";
+import { useApp } from "@contexts";
 
 /** Busca as clínicas do paciente, normalizando a resposta para um array. */
 const buscarMinhasClinicas = async (): Promise<ClinicaVinculo[]> => {
@@ -12,6 +13,7 @@ const buscarMinhasClinicas = async (): Promise<ClinicaVinculo[]> => {
 };
 
 export function ClinicaUserPage() {
+  const { notificar } = useApp();
   const [clinicas, setClinicas] = useState<ClinicaVinculo[]>([]);
   const [termoBusca, setTermoBusca] = useState("");
   // Já nasce carregando: a tela busca as clínicas na montagem. Assim o
@@ -58,7 +60,7 @@ export function ClinicaUserPage() {
 
   const handleBuscarClinicaEspecifica = async () => {
     if (!termoBusca.trim()) {
-      alert("Digite um código para pesquisar.");
+      notificar("Digite um código para pesquisar.", "erro");
       return;
     }
 
@@ -70,19 +72,19 @@ export function ClinicaUserPage() {
       if (clinicaEncontrada) {
         setClinicas([clinicaEncontrada]);
       } else {
-        alert("Clínica não encontrada.");
+        notificar("Clínica não encontrada.", "erro");
         setClinicas([]);
       }
     } catch (error) {
       console.error("Erro ao buscar clínica específica", error);
-      alert("Nenhuma clínica localizada com este código.");
+      notificar("Nenhuma clínica localizada com este código.", "erro");
     } finally {
       setCarregando(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       <header className="bg-white px-6 py-8 shadow-sm border-b border-slate-200">
         <div className="max-w-md mx-auto">
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">

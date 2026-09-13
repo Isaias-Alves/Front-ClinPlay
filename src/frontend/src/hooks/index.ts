@@ -3,3 +3,4 @@ export { default as useCadastroForm } from "./useCadastroForm";
 export { useModal, useTermosModal } from "./modalHooks";
 export { default as useStompClient, WS_URL } from "./useStompClient";
 export { default as useTratamentoSocket } from "./useTratamentoSocket";
+export { default as useManterTelaAcesa } from "./useManterTelaAcesa";

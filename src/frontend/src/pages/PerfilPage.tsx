@@ -26,7 +26,7 @@ export function PerfilPage() {
 
   if (!usuario) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-dvh bg-slate-50 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
@@ -47,7 +47,7 @@ export function PerfilPage() {
   const isProfissional = tipo === "profissional";
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
+    <div className="min-h-dvh bg-slate-50 pb-20">
       {/* HEADER DE FUNDO */}
       <div className="bg-slate-900 h-64 w-full relative rounded-b-[40px] shadow-lg">
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden rounded-b-[40px]">

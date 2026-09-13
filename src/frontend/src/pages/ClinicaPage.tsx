@@ -12,6 +12,7 @@ import { BottomBar } from "../components/BottomBar";
 import { clinicasServices } from "@services";
 import { ClinicaVinculo } from "@interfaces";
 import { tratarErroClinica } from "@utils";
+import { useApp } from "@contexts";
 
 /** Lista as clínicas do profissional, normalizando a resposta para um array. */
 const buscarMinhasClinicas = async (): Promise<ClinicaVinculo[]> => {
@@ -20,6 +21,7 @@ const buscarMinhasClinicas = async (): Promise<ClinicaVinculo[]> => {
 };
 
 export function ClinicaPage() {
+  const { confirmar, notificar } = useApp();
   const [clinicas, setClinicas] = useState<ClinicaVinculo[]>([]);
   const [termoBusca, setTermoBusca] = useState("");
   // Já nasce carregando: a tela busca as clínicas na montagem. Assim o efeito
@@ -64,19 +66,26 @@ export function ClinicaPage() {
   };
 
   const deletarClinica = async (id: string) => {
-    if (!window.confirm("Deseja realmente remover esta clínica?")) return;
+    if (
+      !(await confirmar({
+        mensagem: "Deseja realmente remover esta clínica?",
+        rotuloConfirmar: "Remover",
+        destrutivo: true,
+      }))
+    )
+      return;
     try {
       await clinicasServices.deletarClinica(id);
       await recarregarClinicas();
     } catch (error) {
       console.error("Erro ao deletar clínica", error);
-      alert(tratarErroClinica(error));
+      notificar(tratarErroClinica(error), "erro");
     }
   };
 
   const handleBuscarClinicaEspecifica = async () => {
     if (!termoBusca.trim()) {
-      alert("Digite um código para pesquisar.");
+      notificar("Digite um código para pesquisar.", "erro");
       return;
     }
 
@@ -88,12 +97,12 @@ export function ClinicaPage() {
       if (clinicaEncontrada) {
         setClinicas([clinicaEncontrada]);
       } else {
-        alert("Clínica não encontrada.");
+        notificar("Clínica não encontrada.", "erro");
         setClinicas([]);
       }
     } catch (error) {
       console.error("Erro ao buscar clínica específica", error);
-      alert("Nenhuma clínica localizada com este código.");
+      notificar("Nenhuma clínica localizada com este código.", "erro");
     } finally {
       setCarregando(false);
     }
@@ -106,15 +115,18 @@ export function ClinicaPage() {
       // A leitura anterior de localStorage("usuario") nunca resolvia, pois essa
       // chave nunca é gravada — o vínculo falhava sempre.
       await clinicasServices.solicitarVinculoProfissional(codigo);
-      alert(`Vinculação à clínica ${codigo} realizada com sucesso!`);
+      notificar(
+        `Vinculação à clínica ${codigo} realizada com sucesso!`,
+        "sucesso",
+      );
     } catch (error) {
       console.error("Erro ao se vincular à clínica", error);
-      alert(tratarErroClinica(error));
+      notificar(tratarErroClinica(error), "erro");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       <header className="bg-white px-6 py-8 shadow-sm border-b border-slate-200">
         <div className="max-w-md mx-auto">
           <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">

@@ -89,7 +89,7 @@ export function ProtocolosFormPage() {
    */
   const [dadosDe, setDadosDe] = useState<string | null>(null);
 
-  const { usuario } = useApp();
+  const { confirmar, notificar, usuario } = useApp();
   const clinPlanId = location.state?.clinPlanId || "";
   // O usuário vem do contexto: a chave localStorage("usuario") nunca é
   // gravada, então este bloco resolvia sempre para undefined.
@@ -196,7 +196,7 @@ export function ProtocolosFormPage() {
     // Verifica se já não está na lista de novos ou de existentes
     if (novosPacientesVinculados.find((p) => p.id === pacienteId)) return;
     if (tratamentosExistentes.find((t) => t.clinPacienteId === pacienteId)) {
-      alert("Este paciente já está vinculado a este protocolo.");
+      notificar("Este paciente já está vinculado a este protocolo.", "erro");
       return;
     }
 
@@ -245,9 +245,12 @@ export function ProtocolosFormPage() {
    */
   const handleDeletarTratamentoExistente = async (tratamentoId: string) => {
     if (
-      !window.confirm(
-        "Deseja realmente remover o vínculo deste paciente com este protocolo? O tratamento será excluído.",
-      )
+      !(await confirmar({
+        mensagem:
+          "Deseja realmente remover o vínculo deste paciente com este protocolo? O tratamento será excluído.",
+        rotuloConfirmar: "Remover vínculo",
+        destrutivo: true,
+      }))
     )
       return;
 
@@ -256,10 +259,10 @@ export function ProtocolosFormPage() {
       setTratamentosExistentes((prev) =>
         prev.filter((t) => t.id !== tratamentoId),
       );
-      alert("Vínculo removido com sucesso!");
+      notificar("Vínculo removido com sucesso!", "sucesso");
     } catch (error) {
       console.error("Erro ao deletar tratamento", error);
-      alert("Não foi possível remover o vínculo do paciente.");
+      notificar("Não foi possível remover o vínculo do paciente.", "erro");
     }
   };
 
@@ -281,8 +284,9 @@ export function ProtocolosFormPage() {
    */
   const onSubmit = async (data: ProtocoloFormInputs) => {
     if (!clinPlanId) {
-      alert(
+      notificar(
         "Erro: ID da clínica não encontrado. Volte e selecione uma clínica.",
+        "erro",
       );
       return;
     }
@@ -290,8 +294,9 @@ export function ProtocolosFormPage() {
     // Validação de segurança: se houver novos pacientes, todos precisam ter data de início preenchida
     const dataFaltando = novosPacientesVinculados.some((p) => !p.dataInicio);
     if (dataFaltando) {
-      alert(
+      notificar(
         "Por favor, preencha a data de início de todos os pacientes selecionados.",
+        "erro",
       );
       return;
     }
@@ -318,8 +323,9 @@ export function ProtocolosFormPage() {
       // PASSO 2 e 3: Processar lista de novos pacientes em lote (múltiplas requisições paralelas)
       if (novosPacientesVinculados.length > 0 && protocoloIdFinal) {
         if (!clinProfissionalIdReal) {
-          alert(
+          notificar(
             "Protocolo salvo, mas os vínculos de pacientes falharam: ID de profissional não identificado na clínica.",
+            "erro",
           );
           setSalvando(false);
           return;
@@ -346,11 +352,14 @@ export function ProtocolosFormPage() {
         await Promise.all(promessasVincular);
       }
 
-      alert("Operação concluída com sucesso!");
+      notificar("Operação concluída com sucesso!", "sucesso");
       navigate("/protocolos");
     } catch (error) {
       console.error("Erro ao processar o formulário", error);
-      alert("Erro ao salvar. Verifique o console para obter detalhes.");
+      notificar(
+        "Erro ao salvar. Verifique o console para obter detalhes.",
+        "erro",
+      );
     } finally {
       setSalvando(false);
     }
@@ -367,14 +376,14 @@ export function ProtocolosFormPage() {
 
   if (carregandoDados) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center text-sm text-slate-500">
+      <div className="min-h-dvh bg-slate-50 flex items-center justify-center text-sm text-slate-500">
         A carregar dados necessários...
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       {/* Header */}
       <header className="bg-white px-6 pt-10 pb-4 shadow-sm border-b border-slate-200">
         <div className="max-w-2xl mx-auto flex items-center justify-between">

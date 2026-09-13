@@ -149,7 +149,7 @@ export function ClinicaFormPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/50 flex flex-col items-center p-4 sm:p-8 relative overflow-hidden">
+    <div className="min-h-dvh bg-slate-100/50 flex flex-col items-center p-4 sm:p-8 relative overflow-hidden">
       <motion.div
         animate={{ scale: [1, 1.2, 1], x: [0, 30, 0], y: [0, -40, 0] }}
         transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}

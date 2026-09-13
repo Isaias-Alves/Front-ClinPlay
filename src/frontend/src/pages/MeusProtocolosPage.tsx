@@ -20,6 +20,7 @@ import type {
   ExercicioInfoResponse,
   TratamentoResponseApi,
 } from "@interfaces";
+import { useApp } from "@contexts";
 
 interface TratamentoExibicao extends TratamentoResponseApi {
   protocoloNome?: string;
@@ -40,6 +41,7 @@ interface TratamentoExibicao extends TratamentoResponseApi {
  * @returns {JSX.Element} A página estruturada de tratamentos do paciente.
  */
 export function MeusProtocolosPage() {
+  const { notificar } = useApp();
   const [vinculos, setVinculos] = useState<ClinicaVinculo[]>([]);
   const [vinculoSelecionado, setVinculoSelecionado] = useState<string>("");
 
@@ -182,12 +184,12 @@ export function MeusProtocolosPage() {
       // Abre o link de forma segura numa nova aba
       window.open(url, "_blank", "noopener,noreferrer");
     } else {
-      alert("Este exercício não possui um vídeo cadastrado.");
+      notificar("Este exercício não possui um vídeo cadastrado.", "erro");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       <header className="bg-white px-6 pt-10 pb-6 shadow-sm border-b border-slate-200">
         <div className="max-w-md mx-auto">
           <h1 className="text-2xl font-bold text-slate-800">

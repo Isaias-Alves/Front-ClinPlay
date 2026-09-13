@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { PropsMotorVisual } from "../tipos";
 
 /** Escala da esfera em cada fase. Cresce no esforço, encolhe no descanso. */
@@ -23,6 +23,10 @@ const COR_POR_FASE: Record<string, string> = {
 export function EsferaBiofeedback({ estado }: PropsMotorVisual) {
   const { fase } = estado;
   const emEsforco = fase === "ACAO_PRINCIPAL";
+  // Motor padrão do app: numa série de 10 minutos os laços infinitos
+  // mantêm o compositor ativo sem pausa. Respeitar a preferência do
+  // sistema poupa bateria e atende quem tem sensibilidade a movimento.
+  const reduzirMovimento = useReducedMotion();
 
   return (
     <div className="relative flex h-56 w-56 items-center justify-center">
@@ -31,7 +35,11 @@ export function EsferaBiofeedback({ estado }: PropsMotorVisual) {
         aria-hidden
         className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-20"
       >
-        <div className="absolute h-56 w-56 animate-pulse rounded-full border border-white/20" />
+        <div
+          className={`absolute h-56 w-56 rounded-full border border-white/20 ${
+            reduzirMovimento ? "" : "animate-pulse"
+          }`}
+        />
         <div className="absolute h-80 w-80 rounded-full border border-white/10" />
       </div>
 
@@ -46,7 +54,7 @@ export function EsferaBiofeedback({ estado }: PropsMotorVisual) {
         transition={{ duration: 1, ease: "easeInOut" }}
         className="relative z-20 flex h-24 w-24 items-center justify-center rounded-full border-4 border-white/10"
       >
-        {emEsforco && (
+        {emEsforco && !reduzirMovimento && (
           <motion.div
             animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.2, 0.5] }}
             transition={{ repeat: Infinity, duration: 1.5 }}

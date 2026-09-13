@@ -4,6 +4,7 @@ import { FaHospital, FaArrowLeft, FaUserCheck, FaLink } from "react-icons/fa";
 import { BottomBar } from "../components/BottomBar";
 import { clinicasServices } from "@services";
 import type { ClinicaVinculo } from "@interfaces";
+import { useApp } from "@contexts";
 
 /** Verifica se o paciente já está vinculado à clínica de um dado código. */
 const verificarVinculo = async (codigo: string): Promise<boolean> => {
@@ -14,6 +15,7 @@ const verificarVinculo = async (codigo: string): Promise<boolean> => {
 };
 
 export function ClinicaUserDetalhesPage() {
+  const { notificar } = useApp();
   const { codigo } = useParams<{ codigo: string }>();
   const navigate = useNavigate();
   const [clinicaNome, setClinicaNome] = useState("Consultando Clínica...");
@@ -63,24 +65,24 @@ export function ClinicaUserDetalhesPage() {
   const handleSolicitarVinculo = async () => {
     try {
       if (!codigo) {
-        alert("Não foi possível identificar a clínica.");
+        notificar("Não foi possível identificar a clínica.", "erro");
         return;
       }
 
       // O solicitante vem do token; não há ID de usuário para enviar.
       await clinicasServices.solicitarVinculoPaciente(codigo);
-      alert("Solicitação de vínculo enviada com sucesso!");
+      notificar("Solicitação de vínculo enviada com sucesso!", "sucesso");
       // Só o estado do vínculo pode ter mudado; recarregar a clínica inteira
       // faria a tela piscar sem necessidade.
       setEstaVinculado(await verificarVinculo(codigo));
     } catch (error) {
       console.error("Erro ao solicitar vínculo", error);
-      alert("Não foi possível solicitar o vínculo.");
+      notificar("Não foi possível solicitar o vínculo.", "erro");
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       <header className="bg-white px-6 py-8 shadow-sm border-b border-slate-200">
         <div className="max-w-md mx-auto flex items-center gap-4">
           <button

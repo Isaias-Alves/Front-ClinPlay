@@ -95,14 +95,14 @@ export function ClinicaDetalhesPage() {
 
   if (!clinica) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-dvh bg-slate-50 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/50 pb-20 relative overflow-hidden">
+    <div className="min-h-dvh bg-slate-100/50 pb-20 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-64 bg-slate-900 rounded-b-[40px] z-0"></div>
 
       <div className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 relative z-10">

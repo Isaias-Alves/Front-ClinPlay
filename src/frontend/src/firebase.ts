@@ -3,6 +3,8 @@
  * Estas chaves são públicas por design: o controle de acesso fica nas regras
  * do projeto Firebase, não no segredo do `apiKey`.
  */
+import { registrarServiceWorker } from "./services/registrarServiceWorker";
+
 const firebaseConfig = {
   apiKey: "AIzaSyBMerPvSO4y-eFqTOb0EUudpFq8IbaspEA",
   authDomain: "clin-play.firebaseapp.com",
@@ -47,7 +49,16 @@ export const solicitarTokenFirebase = async (): Promise<string | null> => {
     if (!contexto) return null;
 
     const messaging = contexto.sdk.getMessaging(contexto.app);
-    return await contexto.sdk.getToken(messaging, { vapidKey: VAPID_KEY });
+
+    // Sem passar o registro, o SDK procura `/firebase-messaging-sw.js` e
+    // registra um segundo service worker — que disputaria o escopo `/` com
+    // o worker de cache e um acabaria substituindo o outro.
+    const registration = await registrarServiceWorker();
+
+    return await contexto.sdk.getToken(messaging, {
+      vapidKey: VAPID_KEY,
+      ...(registration ? { serviceWorkerRegistration: registration } : {}),
+    });
   } catch (error) {
     console.error("Erro ao obter token do Firebase:", error);
     return null;

@@ -119,7 +119,7 @@ export function ExercicioFormPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100/50 pb-20 p-4 sm:p-8">
+    <div className="min-h-dvh bg-slate-100/50 pb-20 p-4 sm:p-8">
       <div className="max-w-4xl mx-auto">
         <header className="flex items-center justify-between mb-8">
           <button
@@ -257,6 +257,7 @@ export function ExercicioFormPage() {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     step="0.1"
                     {...register("configPadrao.tempoPrincipal")}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
@@ -271,6 +272,7 @@ export function ExercicioFormPage() {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     step="0.1"
                     {...register("configPadrao.tempoSecundario")}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
@@ -285,6 +287,7 @@ export function ExercicioFormPage() {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     step="0.1"
                     {...register("configPadrao.tempoDescanso")}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
@@ -296,6 +299,7 @@ export function ExercicioFormPage() {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     {...register("configPadrao.series")}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
@@ -306,6 +310,7 @@ export function ExercicioFormPage() {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     {...register("configPadrao.repeticoes")}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
@@ -327,6 +332,7 @@ export function ExercicioFormPage() {
                   </label>
                   <input
                     type="number"
+                    inputMode="decimal"
                     {...register("configPadrao.vezesAoDia")}
                     className="w-full p-3.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 focus:border-emerald-500"
                   />

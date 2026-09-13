@@ -12,6 +12,7 @@ import { protocolosServices } from "@services";
 import { clinicasServices } from "@services"; // Ajuste o caminho se estiver apenas em "@services"
 import { ProtocoloResponseApi } from "@interfaces";
 import type { ClinicaVinculo } from "@interfaces";
+import { useApp } from "@contexts";
 
 /**
  * Componente da página de listagem de protocolos.
@@ -20,6 +21,7 @@ import type { ClinicaVinculo } from "@interfaces";
  * @returns {JSX.Element} A página de protocolos.
  */
 export function ProtocolosPage() {
+  const { confirmar, notificar } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -91,13 +93,20 @@ export function ProtocolosPage() {
    * @param {string} id - O ID (UUID) do protocolo a ser excluído.
    */
   const deletarProtocolo = async (id: string) => {
-    if (!window.confirm("Deseja realmente excluir este protocolo?")) return;
+    if (
+      !(await confirmar({
+        mensagem: "Deseja realmente excluir este protocolo?",
+        rotuloConfirmar: "Excluir",
+        destrutivo: true,
+      }))
+    )
+      return;
     try {
       await protocolosServices.deletar(id);
       setProtocolos((prev) => prev.filter((p) => p.id !== id));
     } catch (error) {
       console.error("Erro ao deletar protocolo", error);
-      alert("Erro ao excluir protocolo. Tente novamente.");
+      notificar("Erro ao excluir protocolo. Tente novamente.", "erro");
     }
   };
 
@@ -108,7 +117,7 @@ export function ProtocolosPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-28">
+    <div className="min-h-dvh bg-slate-50 pb-28">
       {/* Header */}
       <header className="bg-white px-6 pt-10 pb-6 shadow-sm border-b border-slate-200">
         <div className="max-w-md mx-auto">
