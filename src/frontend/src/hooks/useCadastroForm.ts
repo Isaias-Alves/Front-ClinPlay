@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { authServices } from "@services";
+import { mensagemDeErro } from "@utils";
 import {
   CadastroPacienteRequest,
   CadastroProfissionalRequest,
@@ -58,7 +59,7 @@ const useCadastroForm = () => {
   const salvarUsuario = async (
     formData: UsuarioFormInput,
     avatarUrl?: string | null,
-  ) => {
+  ): Promise<boolean> => {
     const partesData = formData.dataNascimento.split("/");
     if (partesData.length !== 3) {
       setNotificacao({
@@ -66,7 +67,7 @@ const useCadastroForm = () => {
         mensagem: "Data de nascimento inválida. Use o formato DD/MM/AAAA.",
         tipo: "erro",
       });
-      return;
+      return false;
     }
 
     const [dia, mes, ano] = partesData;
@@ -124,17 +125,25 @@ const useCadastroForm = () => {
         });
       }
       reset();
-    } catch {
-      const mensagemErro =
+      return true;
+    } catch (erro) {
+      /**
+       * O catch antigo trocava qualquer erro por um texto genérico. Isso
+       * apagava tanto a mensagem do `exigir()` ("Preencha o campo CPF.")
+       * quanto a do backend ("CPF já cadastrado"), deixando quem tenta se
+       * cadastrar sem a menor pista do que corrigir.
+       */
+      const padrao =
         formData.tipo === "paciente"
           ? "Erro ao cadastrar paciente."
           : "Erro ao cadastrar profissional!";
 
       setNotificacao({
         isOpen: true,
-        mensagem: mensagemErro,
+        mensagem: mensagemDeErro(erro, padrao),
         tipo: "erro",
       });
+      return false;
     }
   };
 

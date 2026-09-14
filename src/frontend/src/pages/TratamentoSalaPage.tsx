@@ -20,7 +20,7 @@ import {
   FiCheck,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-import { mensagemDeErro } from "@utils";
+import { mensagemDeErro, validarPeriodo } from "@utils";
 import type {
   ErroSocket,
   EventoTratamento,
@@ -169,6 +169,7 @@ export function TratamentoSalaPage() {
   const [isFinalizando, setIsFinalizando] = useState(false);
   const [editDescricao, setEditDescricao] = useState("");
   const [editFim, setEditFim] = useState("");
+  const [erroConfig, setErroConfig] = useState<string | null>(null);
   const [editLembreteSeq, setEditLembreteSeq] = useState(false);
   const [editLembreteEx, setEditLembreteEx] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -282,13 +283,33 @@ export function TratamentoSalaPage() {
     setEditFim(t.fim || "");
     setEditLembreteSeq(t.lembreteConfig?.sequencia ?? true);
     setEditLembreteEx(t.lembreteConfig?.exercicios ?? true);
+    setErroConfig(null);
     setIsConfigModalOpen(true);
   };
 
   const handleSalvarConfig = () => {
+    /**
+     * Este modal não validava nada e fechava sempre. Dava para apagar o
+     * objetivo do tratamento e marcar a alta para antes do início — o
+     * período virava negativo e a barra de progresso do paciente saía
+     * quebrada, sem nenhum aviso de que algo tinha dado errado.
+     */
+    const descricao = editDescricao.trim();
+    if (!descricao) {
+      setErroConfig("Informe o objetivo do tratamento.");
+      return;
+    }
+
+    const periodo = validarPeriodo(t?.inicio, editFim);
+    if (periodo !== true) {
+      setErroConfig(periodo);
+      return;
+    }
+
+    setErroConfig(null);
     enviar({
       tipo: "EDITAR_TRATAMENTO",
-      descricao: editDescricao,
+      descricao,
       fim: editFim || null,
       lembreteConfig: {
         sequencia: editLembreteSeq,
@@ -305,7 +326,7 @@ export function TratamentoSalaPage() {
   return (
     <div className="min-h-dvh bg-slate-50 pb-20 relative overflow-hidden">
       {/* BACKGROUND GAMIFICADO COM ESFERAS E GRID */}
-      <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
+      <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(var(--pontilhado)_1px,transparent_1px)] [background-size:24px_24px] opacity-40"></div>
       <div className="fixed top-[-10%] left-[-5%] w-96 h-96 bg-emerald-400/20 rounded-full mix-blend-multiply filter blur-[100px] animate-pulse pointer-events-none z-0"></div>
       <div
         className="fixed bottom-[10%] right-[-5%] w-96 h-96 bg-blue-400/10 rounded-full mix-blend-multiply filter blur-[100px] animate-pulse pointer-events-none z-0"
@@ -584,6 +605,7 @@ export function TratamentoSalaPage() {
                     type="text"
                     value={editDescricao}
                     onChange={(e) => setEditDescricao(e.target.value)}
+                    maxLength={255}
                     className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-2xl outline-none transition-colors text-slate-700 font-medium"
                     placeholder="Ex: Fortalecimento..."
                   />
@@ -597,9 +619,19 @@ export function TratamentoSalaPage() {
                     type="date"
                     value={editFim}
                     onChange={(e) => setEditFim(e.target.value)}
+                    min={t?.inicio || undefined}
                     className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-2xl outline-none transition-colors text-slate-700 font-medium"
                   />
                 </div>
+
+                {erroConfig && (
+                  <p
+                    role="alert"
+                    className="rounded-2xl bg-red-50 p-3 text-xs font-bold text-red-600"
+                  >
+                    {erroConfig}
+                  </p>
+                )}
 
                 <div className="pt-4 border-t border-slate-100">
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">

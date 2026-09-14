@@ -26,6 +26,20 @@ interface ClinicaFormData {
   cidade: string;
 }
 
+/**
+ * Mensagem de erro do campo.
+ *
+ * Os quatro campos obrigatórios desta tela já tinham regra `required`, mas
+ * `errors` nunca era lido: apagar a cidade e tocar em "Salvar" não fazia
+ * absolutamente nada, sem nenhuma indicação do motivo.
+ */
+const Erro = ({ mensagem }: { mensagem?: string }) =>
+  mensagem ? (
+    <p role="alert" className="mt-1.5 text-[11px] font-bold text-red-500">
+      {mensagem}
+    </p>
+  ) : null;
+
 export function ClinicaDetalhesPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -36,7 +50,13 @@ export function ClinicaDetalhesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, handleSubmit, control, reset } = useForm<ClinicaFormData>();
+  const {
+    register,
+    handleSubmit,
+    control,
+    reset,
+    formState: { errors },
+  } = useForm<ClinicaFormData>({ mode: "onBlur" });
 
   useEffect(() => {
     if (clinica) {
@@ -214,6 +234,7 @@ export function ClinicaDetalhesPage() {
               </motion.div>
             ) : (
               <motion.form
+                noValidate
                 key="edit"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -227,9 +248,18 @@ export function ClinicaDetalhesPage() {
                       Nome da Clínica
                     </label>
                     <input
-                      {...register("nome", { required: "Obrigatório" })}
+                      {...register("nome", {
+                        required: "O nome é obrigatório",
+                        maxLength: {
+                          value: 100,
+                          message: "Máximo de 100 caracteres",
+                        },
+                      })}
+                      maxLength={100}
+                      aria-invalid={!!errors.nome}
                       className="w-full p-3.5 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none transition-colors text-slate-700 font-medium"
                     />
+                    <Erro mensagem={errors.nome?.message} />
                   </div>
 
                   <div>
@@ -262,10 +292,17 @@ export function ClinicaDetalhesPage() {
                     </label>
                     <input
                       {...register("especialidade", {
-                        required: "Obrigatório",
+                        required: "A especialidade é obrigatória",
+                        maxLength: {
+                          value: 100,
+                          message: "Máximo de 100 caracteres",
+                        },
                       })}
+                      maxLength={100}
+                      aria-invalid={!!errors.especialidade}
                       className="w-full p-3.5 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none transition-colors text-slate-700 font-medium"
                     />
+                    <Erro mensagem={errors.especialidade?.message} />
                   </div>
 
                   <div>
@@ -292,6 +329,7 @@ export function ClinicaDetalhesPage() {
                         </select>
                       )}
                     />
+                    <Erro mensagem={errors.uf?.message} />
                   </div>
 
                   <div>
@@ -299,9 +337,18 @@ export function ClinicaDetalhesPage() {
                       Cidade
                     </label>
                     <input
-                      {...register("cidade", { required: "Obrigatório" })}
+                      {...register("cidade", {
+                        required: "A cidade é obrigatória",
+                        maxLength: {
+                          value: 100,
+                          message: "Máximo de 100 caracteres",
+                        },
+                      })}
+                      maxLength={100}
+                      aria-invalid={!!errors.cidade}
                       className="w-full p-3.5 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none transition-colors text-slate-700 font-medium"
                     />
+                    <Erro mensagem={errors.cidade?.message} />
                   </div>
                 </div>
 

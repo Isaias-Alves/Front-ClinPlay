@@ -7,6 +7,7 @@ import Header from "./Header";
 import { BottomBar } from "./BottomBar";
 import { NotificacaoModal } from "./NotificacaoModal";
 import { ConfirmacaoModal } from "./ConfirmacaoModal";
+import { FalhaAoCarregar } from "./FalhaAoCarregar";
 import { VideoExercicio } from "./VideoExercicio";
 
 import { BuscarClinicaModal } from "./BuscarClinicaModal";
@@ -25,6 +26,7 @@ export {
   BottomBar,
   NotificacaoModal,
   ConfirmacaoModal,
+  FalhaAoCarregar,
   VideoExercicio,
   BuscarClinicaModal,
   SeletorPaciente,

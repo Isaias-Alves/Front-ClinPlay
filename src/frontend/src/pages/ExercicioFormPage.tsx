@@ -15,7 +15,13 @@ import {
 import { clinicasServices } from "@services";
 import { useApp } from "@contexts";
 import { obterJogo } from "@games";
-import { mensagemDeErro } from "@utils";
+import {
+  mensagemDeErro,
+  validarNumero,
+  atributosNumero,
+  validarHHMM,
+  validarUrlYoutube,
+} from "@utils";
 
 interface ExercicioFormData {
   nome: string;
@@ -35,6 +41,14 @@ interface ExercicioFormData {
     tempoDescanso: number;
   };
 }
+
+/** Mensagem de erro do campo. */
+const Erro = ({ mensagem }: { mensagem?: string }) =>
+  mensagem ? (
+    <p role="alert" className="mt-1 block text-[11px] font-bold text-red-500">
+      {mensagem}
+    </p>
+  ) : null;
 
 export function ExercicioFormPage() {
   const navigate = useNavigate();
@@ -71,6 +85,19 @@ export function ExercicioFormPage() {
   useEffect(() => {
     if (!jogoSelecionado || !clinicaId) navigate(-1);
   }, [jogoSelecionado, clinicaId, navigate]);
+
+  /**
+   * O formulário é longo e o botão fica no rodapé. Sem isto, um campo
+   * inválido lá em cima faz o `handleSubmit` abortar em silêncio: o
+   * profissional toca em "Enviar" e a tela não reage. O aviso diz o que
+   * houve e o `scrollIntoView` leva até o campo.
+   */
+  const aoInvalidar = () => {
+    notificar("Revise os campos destacados em vermelho.", "erro");
+    document
+      .querySelector('[aria-invalid="true"]')
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   const onSubmit = async (data: ExercicioFormData) => {
     if (!jogoSelecionado || !clinicaId) return;
@@ -147,7 +174,11 @@ export function ExercicioFormPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-10">
+          <form
+            noValidate
+            onSubmit={handleSubmit(onSubmit, aoInvalidar)}
+            className="p-8 space-y-10"
+          >
             {/* INFORMAÇÕES GERAIS */}
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-6">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2 border-b border-slate-200/60 pb-3">
@@ -160,7 +191,15 @@ export function ExercicioFormPage() {
                     NOME DO EXERCÍCIO
                   </label>
                   <input
-                    {...register("nome", { required: "Obrigatório" })}
+                    {...register("nome", {
+                      required: "O nome é obrigatório",
+                      maxLength: {
+                        value: 100,
+                        message: "Máximo de 100 caracteres",
+                      },
+                    })}
+                    maxLength={100}
+                    aria-invalid={!!errors.nome}
                     className="w-full p-3.5 bg-white border border-slate-200 focus:border-emerald-500 rounded-xl outline-none transition-all font-semibold text-slate-700"
                     placeholder="Ex: Treino de Fast Fibers - Inicial"
                   />
@@ -175,10 +214,17 @@ export function ExercicioFormPage() {
                     DESCRIÇÃO / ORIENTAÇÃO AO PACIENTE
                   </label>
                   <textarea
-                    {...register("descricao")}
+                    {...register("descricao", {
+                      maxLength: {
+                        value: 1000,
+                        message: "Máximo de 1000 caracteres",
+                      },
+                    })}
+                    maxLength={1000}
                     className="w-full p-3.5 bg-white border border-slate-200 focus:border-emerald-500 rounded-xl outline-none h-24 resize-none text-slate-600 font-medium"
                     placeholder="Oriente o paciente sobre o posicionamento e postura antes de iniciar o jogo..."
                   />
+                  <Erro mensagem={errors.descricao?.message} />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-2">
@@ -186,17 +232,7 @@ export function ExercicioFormPage() {
                     (URL)
                   </label>
                   <input
-                    {...register("videoUrl", {
-                      validate: (val) => {
-                        if (!val || val.trim() === "") return true;
-                        const youtubeRegex =
-                          /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/)|youtu\.be\/)[\w-]{11}/;
-                        return (
-                          youtubeRegex.test(val.trim()) ||
-                          "Insira uma URL válida do YouTube"
-                        );
-                      },
-                    })}
+                    {...register("videoUrl", { validate: validarUrlYoutube })}
                     className={`w-full p-3.5 bg-white border ${errors.videoUrl ? "border-red-400 focus:border-red-400" : "border-slate-200 focus:border-emerald-500"} rounded-xl outline-none text-slate-600`}
                     placeholder="https://youtube.com/watch?v=..."
                   />
@@ -223,10 +259,16 @@ export function ExercicioFormPage() {
                   </label>
                   <input
                     type="text"
-                    {...register("configPadrao.acaoPrincipal")}
+                    {...register("configPadrao.acaoPrincipal", {
+                      required: "Obrigatório",
+                      maxLength: { value: 40, message: "Máximo de 40" },
+                    })}
+                    maxLength={40}
+                    aria-invalid={!!errors.configPadrao?.acaoPrincipal}
                     placeholder="Ex: Contrair / Inspirar"
                     className="w-full p-3.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-semibold text-slate-700"
                   />
+                  <Erro mensagem={errors.configPadrao?.acaoPrincipal?.message} />
                   <span className="text-[10px] text-slate-400 mt-1 block">
                     * Comando exibido na tela no momento de pico de esforço.
                   </span>
@@ -237,10 +279,16 @@ export function ExercicioFormPage() {
                   </label>
                   <input
                     type="text"
-                    {...register("configPadrao.acaoSecundaria")}
+                    {...register("configPadrao.acaoSecundaria", {
+                      required: "Obrigatório",
+                      maxLength: { value: 40, message: "Máximo de 40" },
+                    })}
+                    maxLength={40}
+                    aria-invalid={!!errors.configPadrao?.acaoSecundaria}
                     placeholder="Ex: Relaxar / Expirar"
                     className="w-full p-3.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-semibold text-slate-700"
                   />
+                  <Erro mensagem={errors.configPadrao?.acaoSecundaria?.message} />
                   <span className="text-[10px] text-slate-400 mt-1 block">
                     * Comando exibido na tela na segunda fase do movimento.
                   </span>
@@ -256,12 +304,14 @@ export function ExercicioFormPage() {
                     TEMPO PRINCIPAL (s)
                   </label>
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    {...register("configPadrao.tempoPrincipal")}
+                    {...atributosNumero("tempoPrincipal")}
+                    {...register("configPadrao.tempoPrincipal", {
+                      validate: (v) => validarNumero(v, "tempoPrincipal"),
+                    })}
+                    aria-invalid={!!errors.configPadrao?.tempoPrincipal}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
+                  <Erro mensagem={errors.configPadrao?.tempoPrincipal?.message} />
                 </div>
                 <div>
                   <label
@@ -271,12 +321,14 @@ export function ExercicioFormPage() {
                     TEMPO SECUNDÁRIO (s)
                   </label>
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    {...register("configPadrao.tempoSecundario")}
+                    {...atributosNumero("tempoSecundario")}
+                    {...register("configPadrao.tempoSecundario", {
+                      validate: (v) => validarNumero(v, "tempoSecundario"),
+                    })}
+                    aria-invalid={!!errors.configPadrao?.tempoSecundario}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
+                  <Erro mensagem={errors.configPadrao?.tempoSecundario?.message} />
                 </div>
                 <div>
                   <label
@@ -286,34 +338,42 @@ export function ExercicioFormPage() {
                     PAUSA/DESCANSO (s)
                   </label>
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    step="0.1"
-                    {...register("configPadrao.tempoDescanso")}
+                    {...atributosNumero("tempoDescanso")}
+                    {...register("configPadrao.tempoDescanso", {
+                      validate: (v) => validarNumero(v, "tempoDescanso"),
+                    })}
+                    aria-invalid={!!errors.configPadrao?.tempoDescanso}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
+                  <Erro mensagem={errors.configPadrao?.tempoDescanso?.message} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-700 mb-1.5">
                     SÉRIES NO JOGO
                   </label>
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    {...register("configPadrao.series")}
+                    {...atributosNumero("series")}
+                    {...register("configPadrao.series", {
+                      validate: (v) => validarNumero(v, "series"),
+                    })}
+                    aria-invalid={!!errors.configPadrao?.series}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
+                  <Erro mensagem={errors.configPadrao?.series?.message} />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-700 mb-1.5">
                     REPETIÇÕES/SÉRIE
                   </label>
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    {...register("configPadrao.repeticoes")}
+                    {...atributosNumero("repeticoes")}
+                    {...register("configPadrao.repeticoes", {
+                      validate: (v) => validarNumero(v, "repeticoes"),
+                    })}
+                    aria-invalid={!!errors.configPadrao?.repeticoes}
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
+                  <Erro mensagem={errors.configPadrao?.repeticoes?.message} />
                 </div>
               </div>
             </div>
@@ -331,11 +391,14 @@ export function ExercicioFormPage() {
                     EXECUÇÕES DIÁRIAS
                   </label>
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    {...register("configPadrao.vezesAoDia")}
+                    {...atributosNumero("vezesAoDia")}
+                    {...register("configPadrao.vezesAoDia", {
+                      validate: (v) => validarNumero(v, "vezesAoDia"),
+                    })}
+                    aria-invalid={!!errors.configPadrao?.vezesAoDia}
                     className="w-full p-3.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 focus:border-emerald-500"
                   />
+                  <Erro mensagem={errors.configPadrao?.vezesAoDia?.message} />
                   <span className="text-[12px] text-slate-400 mt-2 mb-5 block leading-normal">
                     * Quantas sessões completas o paciente precisa fechar no dia
                     para bater a meta.
@@ -370,11 +433,13 @@ export function ExercicioFormPage() {
                   <input
                     type="text"
                     {...register("tempoInativoForm", {
-                      pattern: {
-                        value: /^\d{1,2}:\d{2}$/,
-                        message: "Use o formato HH:MM (ex: 02:30)",
-                      },
+                      // O padrão anterior (`\d{1,2}:\d{2}`) deixava passar
+                      // "99:99", que virava 100,65 h de bloqueio — quatro
+                      // dias sem o paciente conseguir repetir o exercício.
+                      validate: validarHHMM,
                     })}
+                    inputMode="numeric"
+                    aria-invalid={!!errors.tempoInativoForm}
                     placeholder="02:30"
                     maxLength={5}
                     className="w-full p-3.5 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center tracking-widest placeholder:text-slate-300 placeholder:font-normal focus:border-emerald-500"
@@ -399,10 +464,17 @@ export function ExercicioFormPage() {
                 JUSTIFICATIVA CLÍNICA DA CRIAÇÃO (MENSAGEM AO ADMINISTRADOR)
               </label>
               <input
-                {...register("mensagem")}
+                {...register("mensagem", {
+                  maxLength: {
+                    value: 500,
+                    message: "Máximo de 500 caracteres",
+                  },
+                })}
+                maxLength={500}
                 className="w-full p-3.5 bg-amber-50/50 border border-amber-200 focus:border-amber-400 rounded-xl outline-none text-slate-700 font-medium"
                 placeholder="Ex: Solicito este motor para trabalhar contrações tônicas sustentadas em pacientes com disfunções específicas..."
               />
+              <Erro mensagem={errors.mensagem?.message} />
             </div>
 
             <div className="pt-4">

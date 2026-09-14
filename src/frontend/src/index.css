@@ -8,6 +8,13 @@ body {
     height: 100%;
 }
 
+:root {
+    /* Cor dos pontinhos de fundo da tela inicial e da sala de tratamento.
+       Estava fixa no JSX (`#cbd5e1`), o que a deixava fora do alcance do
+       tema — no escuro virava uma chuva de pontos claros. */
+    --pontilhado: #cbd5e1;
+}
+
 .input-clinplay {
     @apply w-full px-4 py-2 rounded-lg border border-slate-200 outline-none transition-all focus:border-blue-500 focus:ring-4 focus:ring-blue-100;
 }
@@ -22,4 +29,300 @@ body {
 .input-field-clinplay-icon {
     @apply text-slate-400 w-5 h-5;
     @apply text-[#7ED1B2];
+}
+
+/* =====================================================================
+   TEMA ESCURO
+   =====================================================================
+
+   As telas foram escritas com a paleta fixa do Tailwind (`bg-white`,
+   `text-slate-700`, `border-slate-200`...). Reescrever 50 páginas para
+   adicionar variantes `dark:` seria um mês de trabalho e um mês de
+   regressões visuais.
+
+   Em vez disso, remapeamos as *classes* sob `[data-tema="escuro"]`. O
+   seletor de atributo soma especificidade, então estas regras vencem as do
+   Tailwind sem `!important`, e a página inteira muda de tema de uma vez.
+
+   Por que classe e não a variável `--color-*` do Tailwind: os papéis se
+   cruzam. `white` é fundo de card (145 usos) **e** texto sobre botão
+   colorido (62 usos); `slate-800` é texto (59) e fundo escuro (10). Trocar
+   a variável quebraria um dos dois papéis. No nível da classe, cada papel
+   é tratado separadamente.
+
+   Regra de ouro do que NÃO se toca: tudo que já era claro-sobre-escuro
+   (`text-white`, `bg-white/10`, `bg-slate-900`, os overlays de modal) fica
+   como está — já estava correto no escuro. E as cores de acento (emerald,
+   blue, indigo, amber, red) também: elas carregam significado clínico e
+   continuam legíveis sobre fundo escuro.
+   ===================================================================== */
+
+[data-tema="escuro"] {
+    /* Superfícies, da mais funda para a mais alta. */
+    --t-fundo: #0b1120;
+    --t-superficie: #151c2c;
+    --t-superficie-alta: #1e2637;
+    --t-abismo: #060b16;
+
+    /* Bordas e divisores. */
+    --t-borda: #29334a;
+    --t-borda-forte: #3a465e;
+
+    /* Texto, do mais forte para o mais discreto. */
+    --t-texto: #e9eefa;
+    --t-texto-2: #c2cbdd;
+    --t-texto-3: #93a0b8;
+    --t-texto-4: #7b8aa3;
+
+    --pontilhado: #1e293b;
+
+    background-color: var(--t-fundo);
+}
+
+/* Os véus decorativos do topo das telas partem de um tom claríssimo
+   (`from-emerald-50`, `from-amber-50`). Sobre fundo escuro isso não é um
+   brilho: é uma névoa cinza cobrindo o primeiro terço da tela. */
+[data-tema="escuro"] .from-emerald-50,
+[data-tema="escuro"] .from-emerald-50\/60 {
+    --tw-gradient-from: #10b98126;
+    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
+}
+
+[data-tema="escuro"] .from-amber-50 {
+    --tw-gradient-from: #f59e0b26;
+    --tw-gradient-stops: var(--tw-gradient-via-stops, var(--tw-gradient-position), var(--tw-gradient-from) var(--tw-gradient-from-position), var(--tw-gradient-to) var(--tw-gradient-to-position));
+}
+
+/* ---- Fundos ---------------------------------------------------------- */
+
+[data-tema="escuro"] body,
+[data-tema="escuro"] .bg-slate-50,
+[data-tema="escuro"] .bg-slate-50\/50,
+[data-tema="escuro"] .bg-slate-50\/30 {
+    background-color: var(--t-fundo);
+}
+
+[data-tema="escuro"] .bg-white,
+[data-tema="escuro"] .hover\:bg-white:hover {
+    background-color: var(--t-superficie);
+}
+
+[data-tema="escuro"] .bg-slate-100,
+[data-tema="escuro"] .bg-slate-100\/50,
+[data-tema="escuro"] .bg-slate-200,
+[data-tema="escuro"] .bg-slate-300 {
+    background-color: var(--t-superficie-alta);
+}
+
+/* Os cabeçalhos usam `bg-slate-900`. Mantê-los escuros é o certo, mas no
+   tema escuro eles ficariam colados no fundo da página — então descem um
+   degrau para continuarem sendo um cabeçalho e não uma mancha. */
+[data-tema="escuro"] .bg-slate-800,
+[data-tema="escuro"] .bg-slate-900,
+[data-tema="escuro"] .hover\:bg-slate-800:hover,
+[data-tema="escuro"] .hover\:bg-slate-900:hover {
+    background-color: var(--t-abismo);
+}
+
+/* Estados de toque: no claro escurecem, no escuro precisam clarear — senão
+   o retorno visual do toque simplesmente some. */
+[data-tema="escuro"] .hover\:bg-slate-50:hover,
+[data-tema="escuro"] .hover\:bg-slate-50\/80:hover,
+[data-tema="escuro"] .hover\:bg-slate-100:hover,
+[data-tema="escuro"] .active\:bg-slate-100:active,
+[data-tema="escuro"] .hover\:bg-slate-200:hover {
+    background-color: var(--t-superficie-alta);
+}
+
+[data-tema="escuro"] .disabled\:bg-slate-300:disabled {
+    background-color: var(--t-borda-forte);
+}
+
+/* ---- Texto ----------------------------------------------------------- */
+
+[data-tema="escuro"] .text-slate-900,
+[data-tema="escuro"] .text-slate-800,
+[data-tema="escuro"] .hover\:text-slate-800:hover {
+    color: var(--t-texto);
+}
+
+[data-tema="escuro"] .text-slate-700,
+[data-tema="escuro"] .hover\:text-slate-700:hover {
+    color: var(--t-texto-2);
+}
+
+[data-tema="escuro"] .text-slate-600,
+[data-tema="escuro"] .hover\:text-slate-600:hover,
+[data-tema="escuro"] .text-slate-500 {
+    color: var(--t-texto-3);
+}
+
+[data-tema="escuro"] .text-slate-400 {
+    color: var(--t-texto-4);
+}
+
+[data-tema="escuro"] .text-color {
+    color: var(--t-texto);
+}
+
+/* ---- Bordas ---------------------------------------------------------- */
+
+[data-tema="escuro"] .border-slate-100,
+[data-tema="escuro"] .border-slate-200,
+[data-tema="escuro"] .border-slate-200\/60,
+[data-tema="escuro"] .border-slate-50,
+[data-tema="escuro"] .input-clinplay {
+    border-color: var(--t-borda);
+}
+
+[data-tema="escuro"] .border-slate-300,
+[data-tema="escuro"] .focus\:border-slate-300:focus,
+[data-tema="escuro"] .focus\:border-slate-400:focus {
+    border-color: var(--t-borda-forte);
+}
+
+[data-tema="escuro"] .divide-slate-100 > :not(:last-child) {
+    border-color: var(--t-borda);
+}
+
+/* `border-white` sólida é sempre um recorte em volta do avatar, desenhado
+   para sumir no card branco. No escuro ele vira um anel branco gritante.
+   As variantes translúcidas (`border-white/10`) ficam de fora: aquelas
+   estão sobre cabeçalho escuro e já funcionam. */
+[data-tema="escuro"] .border-white {
+    border-color: var(--t-superficie);
+}
+
+/* ---- Sombras --------------------------------------------------------- */
+
+/* Sombra cinza sobre fundo escuro vira um halo claro em volta do card.
+   No escuro a profundidade tem que vir do preto. */
+[data-tema="escuro"] .shadow-slate-200,
+[data-tema="escuro"] .shadow-slate-200\/50,
+[data-tema="escuro"] .shadow-slate-200\/60,
+[data-tema="escuro"] .shadow-slate-300 {
+    --tw-shadow-color: #00000080;
+}
+
+/* ---- Controles nativos ----------------------------------------------- */
+
+/* `bg-transparent` nos inputs do perfil deixa o campo herdar o card — mas o
+   texto digitado herdaria a cor padrão do navegador (preto). */
+[data-tema="escuro"] input,
+[data-tema="escuro"] textarea,
+[data-tema="escuro"] select {
+    color: inherit;
+}
+
+[data-tema="escuro"] input::placeholder,
+[data-tema="escuro"] textarea::placeholder {
+    color: var(--t-texto-4);
+}
+
+/* O `<option>` é pintado pelo sistema operacional, não herda do `<select>`. */
+[data-tema="escuro"] option {
+    background-color: var(--t-superficie-alta);
+    color: var(--t-texto);
+}
+
+/* =====================================================================
+   ALTO CONTRASTE
+   =====================================================================
+
+   Independente do tema: reforça o que já existe em vez de trocar a paleta.
+   Numa clínica de fisioterapia pélvica boa parte do público é idosa ou
+   está usando o celular no claro do consultório — os cinzas de 12px
+   (`text-slate-400`, 213 usos) são o primeiro a sumir.
+
+   Aplicado depois do bloco escuro de propósito: quando os dois estão
+   ligados, o contraste tem a palavra final.
+   ===================================================================== */
+
+[data-contraste="alto"] .text-slate-400,
+[data-contraste="alto"] .text-slate-500,
+[data-contraste="alto"] .text-slate-600,
+[data-contraste="alto"] .text-slate-700,
+[data-contraste="alto"] .text-slate-800,
+[data-contraste="alto"] .text-slate-900 {
+    color: #0b1120;
+}
+
+[data-contraste="alto"][data-tema="escuro"] .text-slate-400,
+[data-contraste="alto"][data-tema="escuro"] .text-slate-500,
+[data-contraste="alto"][data-tema="escuro"] .text-slate-600,
+[data-contraste="alto"][data-tema="escuro"] .text-slate-700,
+[data-contraste="alto"][data-tema="escuro"] .text-slate-800,
+[data-contraste="alto"][data-tema="escuro"] .text-slate-900 {
+    color: #ffffff;
+}
+
+/* Texto claro sobre cabeçalho escuro: `text-slate-300/400` ali dentro é
+   secundário demais para se ler. */
+[data-contraste="alto"] .bg-slate-900 .text-slate-300,
+[data-contraste="alto"] .bg-slate-900 .text-slate-400,
+[data-contraste="alto"] .text-white\/70 {
+    color: #ffffff;
+}
+
+/* Bordas finas de 1px em cinza-200 praticamente não existem para quem tem
+   baixa visão: o card perde o limite e a tela vira uma lista solta. */
+[data-contraste="alto"] .border,
+[data-contraste="alto"] .border-b,
+[data-contraste="alto"] .border-t {
+    border-color: #334155;
+}
+
+[data-contraste="alto"][data-tema="escuro"] .border,
+[data-contraste="alto"][data-tema="escuro"] .border-b,
+[data-contraste="alto"][data-tema="escuro"] .border-t {
+    border-color: #8fa0bb;
+}
+
+/* Os "orbes" desfocados do cabeçalho e o `backdrop-blur` reduzem contraste
+   justamente atrás de texto. No modo de alto contraste eles saem. */
+[data-contraste="alto"] .blur-3xl,
+[data-contraste="alto"] .blur-2xl {
+    display: none;
+}
+
+[data-contraste="alto"] .backdrop-blur-sm,
+[data-contraste="alto"] .backdrop-blur-md,
+[data-contraste="alto"] .backdrop-blur-lg,
+[data-contraste="alto"] .backdrop-blur-xl {
+    backdrop-filter: none;
+}
+
+/* Foco visível de verdade — importante para quem navega por teclado e para
+   quem usa switch/controle adaptado. */
+[data-contraste="alto"] :focus-visible {
+    outline: 3px solid #1d4ed8;
+    outline-offset: 2px;
+}
+
+[data-contraste="alto"][data-tema="escuro"] :focus-visible {
+    outline-color: #93c5fd;
+}
+
+/* Fundo branco puro / preto puro empurra o contraste do texto ao máximo. */
+[data-contraste="alto"] .bg-white {
+    background-color: #ffffff;
+}
+
+[data-contraste="alto"][data-tema="escuro"] .bg-white {
+    background-color: #000000;
+}
+
+/* =====================================================================
+   MOVIMENTO REDUZIDO
+   ===================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

@@ -8,7 +8,13 @@ import {
   FiSliders,
   FiSave,
 } from "react-icons/fi";
-import { formatarHorasParaHHMM, formatarHHMMParaHoras } from "@utils";
+import {
+  formatarHorasParaHHMM,
+  formatarHHMMParaHoras,
+  validarNumero,
+  atributosNumero,
+  validarHHMM,
+} from "@utils";
 import type { ExercicioConfig, ExercicioInfoResponse } from "@interfaces";
 import { PatternFormat } from "react-number-format"; // IMPORT ADICIONADO AQUI!
 
@@ -55,6 +61,14 @@ const CAMPOS_NUMERICOS: Array<{
   { label: "T. Sec (s)", key: "tempoSecundario", step: "0.1" },
   { label: "Pausa (s)", key: "tempoDescanso", step: "0.1" },
 ];
+
+/** Mensagem de erro de um campo do modal. */
+const Erro = ({ mensagem }: { mensagem?: string }) =>
+  mensagem ? (
+    <p role="alert" className="mt-1 text-[10px] font-bold text-red-400">
+      {mensagem}
+    </p>
+  ) : null;
 
 interface ModalPrescreverExercicioProps {
   isOpen: boolean;
@@ -107,6 +121,7 @@ export const ModalPrescreverExercicio: React.FC<
 
   const handlePrepararPrescricao = (ex: ExercicioInfoResponse) => {
     setExercicioParaPrescrever(ex);
+    setErros({});
     setFormPrescricao({
       objetivo: "",
       observacao: "Siga as instruções do exercício.",
@@ -123,8 +138,42 @@ export const ModalPrescreverExercicio: React.FC<
     });
   };
 
+  /**
+   * Erros por campo. Este modal não usa `react-hook-form`, e antes não
+   * validava nada: dava para zerar séries e repetições, ou deixar o objetivo
+   * em branco, e o `onConfirm` disparava do mesmo jeito. Quem recebia os
+   * parâmetros quebrados era o paciente, na hora de executar.
+   */
+  const [erros, setErros] = useState<Partial<Record<string, string>>>({});
+
+  const validar = (): boolean => {
+    const achados: Record<string, string> = {};
+
+    if (!formPrescricao.objetivo.trim())
+      achados.objetivo = "Descreva o objetivo desta prescrição";
+    if (!formPrescricao.acaoPrincipal.trim())
+      achados.acaoPrincipal = "Obrigatório";
+    if (!formPrescricao.acaoSecundaria.trim())
+      achados.acaoSecundaria = "Obrigatório";
+
+    for (const campo of [
+      ...CAMPOS_NUMERICOS.map((c) => c.key),
+      "diasInativo" as const,
+    ]) {
+      const resultado = validarNumero(formPrescricao[campo], campo);
+      if (resultado !== true) achados[campo] = resultado;
+    }
+
+    const hora = validarHHMM(formPrescricao.tempoInativo);
+    if (hora !== true) achados.tempoInativo = hora;
+
+    setErros(achados);
+    return Object.keys(achados).length === 0;
+  };
+
   const handleConfirmar = () => {
     if (!exercicioParaPrescrever) return;
+    if (!validar()) return;
 
     const payload = {
       exercicioId: exercicioParaPrescrever.id,
@@ -285,9 +334,11 @@ export const ModalPrescreverExercicio: React.FC<
                               objetivo: e.target.value,
                             })
                           }
+                          aria-invalid={!!erros.objetivo}
                           className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium"
                           placeholder="Ex: Aumentar resistência..."
                         />
+                        <Erro mensagem={erros.objetivo} />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
@@ -302,8 +353,11 @@ export const ModalPrescreverExercicio: React.FC<
                               acaoPrincipal: e.target.value,
                             })
                           }
+                          maxLength={40}
+                          aria-invalid={!!erros.acaoPrincipal}
                           className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium"
                         />
+                        <Erro mensagem={erros.acaoPrincipal} />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
@@ -318,8 +372,11 @@ export const ModalPrescreverExercicio: React.FC<
                               acaoSecundaria: e.target.value,
                             })
                           }
+                          maxLength={40}
+                          aria-invalid={!!erros.acaoSecundaria}
                           className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium"
                         />
+                        <Erro mensagem={erros.acaoSecundaria} />
                       </div>
                       <div className="md:col-span-2 pt-2">
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
@@ -333,6 +390,7 @@ export const ModalPrescreverExercicio: React.FC<
                               observacao: e.target.value,
                             })
                           }
+                          maxLength={500}
                           className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-emerald-500 font-medium h-20 resize-none"
                         ></textarea>
                       </div>
@@ -352,21 +410,43 @@ export const ModalPrescreverExercicio: React.FC<
                               {campo.label}
                             </label>
                             <input
-                              type="number"
-                              inputMode="decimal"
-                              step={campo.step}
+                              {...atributosNumero(campo.key)}
+                              // Guardar como texto enquanto edita: `Number("")`
+                              // é 0, então apagar o campo para redigitar
+                              // trocava o valor por zero sem avisar.
                               value={formPrescricao[campo.key]}
                               onChange={(e) =>
                                 setFormPrescricao({
                                   ...formPrescricao,
-                                  [campo.key]: Number(e.target.value),
+                                  [campo.key]: e.target
+                                    .value as unknown as number,
                                 })
                               }
-                              className="w-full p-2 bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-lg outline-none text-center font-bold text-white text-sm"
+                              aria-invalid={!!erros[campo.key]}
+                              title={erros[campo.key]}
+                              className={`w-full p-2 bg-slate-900 border rounded-lg outline-none text-center font-bold text-white text-sm ${
+                                erros[campo.key]
+                                  ? "border-red-500"
+                                  : "border-slate-700 focus:border-emerald-500"
+                              }`}
                             />
                           </div>
                         ))}
                       </div>
+
+                      {/* A grade tem seis caixas de ~50px; não cabe uma
+                          mensagem embaixo de cada uma. A caixa errada fica
+                          com a borda vermelha e o motivo aparece aqui. */}
+                      {CAMPOS_NUMERICOS.some((c) => erros[c.key]) && (
+                        <p
+                          role="alert"
+                          className="mt-3 rounded-xl bg-red-500/10 p-2.5 text-[11px] font-bold text-red-300"
+                        >
+                          {CAMPOS_NUMERICOS.map((c) => erros[c.key])
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      )}
 
                       <div className="grid grid-cols-2 gap-3 mt-3">
                         <div className="bg-slate-800 p-3 rounded-xl border border-slate-700">
@@ -374,17 +454,23 @@ export const ModalPrescreverExercicio: React.FC<
                             Intervalo Dias (A cada X dias)
                           </label>
                           <input
-                            type="number"
-                            inputMode="decimal"
+                            {...atributosNumero("diasInativo")}
                             value={formPrescricao.diasInativo}
                             onChange={(e) =>
                               setFormPrescricao({
                                 ...formPrescricao,
-                                diasInativo: Number(e.target.value),
+                                diasInativo: e.target
+                                  .value as unknown as number,
                               })
                             }
-                            className="w-full p-2.5 bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-lg outline-none font-bold text-white"
+                            aria-invalid={!!erros.diasInativo}
+                            className={`w-full p-2.5 bg-slate-900 border rounded-lg outline-none font-bold text-white ${
+                              erros.diasInativo
+                                ? "border-red-500"
+                                : "border-slate-700 focus:border-emerald-500"
+                            }`}
                           />
+                          <Erro mensagem={erros.diasInativo} />
                         </div>
 
                         {/* ========================================================= */}
@@ -406,8 +492,14 @@ export const ModalPrescreverExercicio: React.FC<
                               })
                             }
                             placeholder="00:00"
-                            className="w-full p-2.5 bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-lg outline-none font-bold text-white text-center"
+                            aria-invalid={!!erros.tempoInativo}
+                            className={`w-full p-2.5 bg-slate-900 border rounded-lg outline-none font-bold text-white text-center ${
+                              erros.tempoInativo
+                                ? "border-red-500"
+                                : "border-slate-700 focus:border-emerald-500"
+                            }`}
                           />
+                          <Erro mensagem={erros.tempoInativo} />
                         </div>
                       </div>
                     </div>

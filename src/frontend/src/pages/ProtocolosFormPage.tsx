@@ -19,6 +19,7 @@ import {
 } from "@services";
 import { ProtocoloRequestApi, ExercicioInfoResponse } from "@interfaces";
 import { useApp } from "@contexts";
+import { mensagemDeErro } from "@utils";
 import type {
   PacienteVinculadoClinica,
   TratamentoResponseApi,
@@ -174,6 +175,17 @@ export function ProtocolosFormPage() {
         }
       } catch (error) {
         console.error("Erro ao carregar dependências do formulário", error);
+        // Sem isto a tela abria com as listas de pacientes e exercícios
+        // vazias, indistinguível de uma clínica que realmente não tem
+        // nenhum — e o profissional montaria um protocolo sem entender por
+        // que ninguém aparece para vincular.
+        notificar(
+          mensagemDeErro(
+            error,
+            "Não foi possível carregar pacientes e exercícios desta clínica.",
+          ),
+          "erro",
+        );
       } finally {
         setDadosDe(chaveCarga);
       }
@@ -417,7 +429,15 @@ export function ProtocolosFormPage() {
               Nome do protocolo
             </label>
             <input
-              {...register("nome", { required: "O nome é obrigatório" })}
+              {...register("nome", {
+                required: "O nome é obrigatório",
+                maxLength: {
+                  value: 100,
+                  message: "Máximo de 100 caracteres",
+                },
+              })}
+              maxLength={100}
+              aria-invalid={!!errors.nome}
               placeholder="Ex.: Protocolo Lombalgia"
               className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 outline-none focus:border-emerald-500 transition-all text-sm"
             />

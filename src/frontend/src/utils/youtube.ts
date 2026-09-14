@@ -19,3 +19,22 @@ export const extrairIdYoutube = (url?: string | null): string | null => {
 
   return null;
 };
+
+/**
+ * Valida o campo de vídeo no formato que o `react-hook-form` espera.
+ *
+ * A regra é a mesma de `extrairIdYoutube`: se o link não rende um id, o
+ * player não tem o que mostrar. A tela de criação já validava o link com uma
+ * expressão própria, mas a de edição aceitava qualquer texto — dava para
+ * salvar um endereço quebrado e só o paciente descobria, na hora do
+ * exercício, que o vídeo não abre.
+ *
+ * Campo vazio é válido: o vídeo é opcional.
+ */
+export const validarUrlYoutube = (url?: string | null): true | string => {
+  if (!url || !url.trim()) return true;
+  return (
+    extrairIdYoutube(url.trim()) !== null ||
+    "Insira um link válido do YouTube"
+  );
+};

@@ -51,7 +51,21 @@ export const mensagemDeErro = (erro: unknown, padrao: string): string => {
     return "Não foi possível conectar ao servidor. Verifique a sua conexão.";
   }
 
-  return mensagemDoCorpo(corpoDoErro(erro)) ?? padrao;
+  if (isAxiosError(erro)) {
+    // `erro.message` do axios é "Request failed with status code 400" —
+    // pior que o texto padrão da tela. Só o corpo da resposta serve.
+    return mensagemDoCorpo(corpoDoErro(erro)) ?? padrao;
+  }
+
+  /**
+   * Erro lançado pelo próprio frontend (validação, guarda de pré-condição).
+   * A mensagem foi escrita para ser lida por quem está na tela — descartá-la
+   * em favor do texto genérico é justamente o que deixava o usuário sem
+   * saber qual campo corrigir.
+   */
+  if (erro instanceof Error && erro.message.trim()) return erro.message;
+
+  return padrao;
 };
 
 /** Reexportado para quem precisa do erro completo do axios. */

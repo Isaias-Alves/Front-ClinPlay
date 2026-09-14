@@ -69,15 +69,20 @@ function FormCadastro() {
   const confirmarECadastrar = () => {
     closeModal();
     handleSubmit(async (data) => {
-      try {
-        await salvarUsuario(data, avatarUrl);
-        await refreshData();
-        const destino =
-          data.tipo === "paciente" ? "/inicio" : "/inicio-profissional";
-        setTimeout(() => navigate(destino), 2500);
-      } catch (error) {
-        console.error("Erro no cadastro:", error);
-      }
+      /**
+       * `salvarUsuario` trata o próprio erro e não relança, então o `catch`
+       * daqui nunca disparava: o cadastro falhava, o usuário via a mensagem
+       * de erro e mesmo assim era levado para a tela inicial 2,5 s depois,
+       * como se a conta tivesse sido criada. Agora a navegação depende do
+       * retorno.
+       */
+      const criado = await salvarUsuario(data, avatarUrl);
+      if (!criado) return;
+
+      await refreshData();
+      const destino =
+        data.tipo === "paciente" ? "/inicio" : "/inicio-profissional";
+      setTimeout(() => navigate(destino), 2500);
     })();
   };
 
@@ -117,7 +122,11 @@ function FormCadastro() {
         />
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      <form
+        noValidate
+        onSubmit={handleSubmit(onSubmit)}
+        className="flex flex-col gap-4"
+      >
         {avatarUrl && (
           <div className="flex flex-col items-center gap-2 mb-2">
             <p className="text-xs text-slate-500 font-medium">Foto do Perfil</p>

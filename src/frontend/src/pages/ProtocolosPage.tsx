@@ -7,7 +7,7 @@ import {
   FiTrash2,
   FiBookOpen,
 } from "react-icons/fi";
-import { BottomBar } from "@components";
+import { BottomBar, FalhaAoCarregar } from "@components";
 import { protocolosServices } from "@services";
 import { clinicasServices } from "@services"; // Ajuste o caminho se estiver apenas em "@services"
 import { ProtocoloResponseApi } from "@interfaces";
@@ -40,6 +40,10 @@ export function ProtocolosPage() {
    * renderização extra a cada troca de clínica.
    */
   const [protocolosDe, setProtocolosDe] = useState<string | null>(null);
+  /** `null` = sem falha. Distingue "lista vazia" de "não carregou". */
+  const [falhou, setFalhou] = useState(false);
+  /** Incrementa para refazer a busca ao tocar em "Tentar novamente". */
+  const [tentativa, setTentativa] = useState(0);
   const carregando =
     Boolean(clinicaSelecionada) && protocolosDe !== clinicaSelecionada;
 
@@ -72,12 +76,18 @@ export function ProtocolosPage() {
     protocolosServices
       .listar(clinicaSelecionada)
       .then((dados) => {
-        if (!cancelado) setProtocolos(dados);
+        if (cancelado) return;
+        setProtocolos(dados);
+        setFalhou(false);
       })
       .catch((error) => {
         if (cancelado) return;
         console.error("Erro ao carregar protocolos", error);
         setProtocolos([]);
+        // Sem esta marca a tela cairia no estado vazio e diria "Nenhum
+        // protocolo cadastrado" — afirmando que não há dado clínico quando
+        // a requisição é que falhou.
+        setFalhou(true);
       })
       .finally(() => {
         if (!cancelado) setProtocolosDe(clinicaSelecionada);
@@ -86,7 +96,7 @@ export function ProtocolosPage() {
     return () => {
       cancelado = true;
     };
-  }, [clinicaSelecionada]);
+  }, [clinicaSelecionada, tentativa]);
 
   /**
    * Solicita a exclusão de um protocolo à API e atualiza a lista local.
@@ -203,6 +213,14 @@ export function ProtocolosPage() {
           <div className="text-center py-12 text-slate-400 text-sm">
             Carregando protocolos...
           </div>
+        ) : falhou ? (
+          <FalhaAoCarregar
+            oQue="os protocolos"
+            onTentarNovamente={() => {
+              setProtocolosDe(null);
+              setTentativa((n) => n + 1);
+            }}
+          />
         ) : protocolosFiltrados.length === 0 ? (
           <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center flex flex-col items-center gap-4">
             <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center">

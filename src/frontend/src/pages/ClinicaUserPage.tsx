@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { FaHospital, FaSearch } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { BottomBar } from "../components/BottomBar";
+import { FalhaAoCarregar } from "@components";
 import { clinicasServices } from "@services";
 import type { ClinicaVinculo } from "@interfaces";
 import { useApp } from "@contexts";
@@ -20,6 +21,8 @@ export function ClinicaUserPage() {
   // efeito não precisa ligar a flag de forma síncrona, o que dispararia uma
   // renderização em cascata antes mesmo da primeira pintura.
   const [carregando, setCarregando] = useState(true);
+  /** Distingue "sem clínica vinculada" de "não deu para carregar". */
+  const [falhou, setFalhou] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -29,12 +32,15 @@ export function ClinicaUserPage() {
 
     buscarMinhasClinicas()
       .then((lista) => {
-        if (!cancelado) setClinicas(lista);
+        if (cancelado) return;
+        setClinicas(lista);
+        setFalhou(false);
       })
       .catch((error) => {
         if (cancelado) return;
         console.error("Erro ao buscar clínicas", error);
         setClinicas([]);
+        setFalhou(true);
       })
       .finally(() => {
         if (!cancelado) setCarregando(false);
@@ -50,9 +56,11 @@ export function ClinicaUserPage() {
     setCarregando(true);
     try {
       setClinicas(await buscarMinhasClinicas());
+      setFalhou(false);
     } catch (error) {
       console.error("Erro ao buscar clínicas", error);
       setClinicas([]);
+      setFalhou(true);
     } finally {
       setCarregando(false);
     }
@@ -139,7 +147,12 @@ export function ClinicaUserPage() {
             Minhas Clínicas ({clinicas.length})
           </h2>
 
-          {clinicas.length === 0 ? (
+          {falhou ? (
+            <FalhaAoCarregar
+              oQue="as suas clínicas"
+              onTentarNovamente={recarregarClinicas}
+            />
+          ) : clinicas.length === 0 ? (
             <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
               <p className="text-slate-400 text-sm">
                 Nenhuma clínica encontrada.

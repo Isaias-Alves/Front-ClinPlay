@@ -259,8 +259,12 @@ export function ExercicioJogarPage() {
                   value={comentario}
                   onChange={(e) => setComentario(e.target.value)}
                   placeholder="Como foi o esforço? Sentiu fadiga?"
+                  maxLength={500}
                   className="h-28 w-full resize-none rounded-[24px] border border-slate-200 bg-slate-50 p-5 text-sm outline-none transition-all focus:border-emerald-500"
                 />
+                <p className="mt-1.5 mr-1 text-right text-[10px] font-medium text-slate-400">
+                  {comentario.length}/500
+                </p>
               </div>
 
               <button

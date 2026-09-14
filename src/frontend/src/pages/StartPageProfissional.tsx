@@ -272,7 +272,18 @@ export function StartPageProfissional() {
           setMeusExercicios(exerciciosAtivos || []);
         }
       } catch (error) {
-        if (!cancelado) console.error("Erro ao carregar dashboard:", error);
+        if (cancelado) return;
+        console.error("Erro ao carregar dashboard:", error);
+        // O painel inteiro (equipe, pacientes, exercícios) ficava zerado sem
+        // uma palavra. Num painel cheio de contadores, "0 pacientes" passa
+        // por informação — e não por falha de carregamento.
+        notificar(
+          mensagemDeErro(
+            error,
+            "Não foi possível carregar os dados do painel.",
+          ),
+          "erro",
+        );
       } finally {
         if (!cancelado) setPainelCarregadoDe(chavePainel);
       }

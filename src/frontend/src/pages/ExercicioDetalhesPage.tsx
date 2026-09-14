@@ -14,7 +14,12 @@ import {
 } from "react-icons/fi";
 import { useApp } from "@contexts";
 import { VideoExercicio } from "@components";
-import { extrairIdYoutube } from "@utils";
+import {
+  extrairIdYoutube,
+  validarUrlYoutube,
+  validarNumero,
+  atributosNumero,
+} from "@utils";
 
 interface ExercicioFormData {
   nome: string;
@@ -31,6 +36,14 @@ interface ExercicioFormData {
   };
 }
 
+/** Mensagem de erro do campo — `errors` não era lido nesta tela. */
+const Erro = ({ mensagem }: { mensagem?: string }) =>
+  mensagem ? (
+    <p role="alert" className="mt-1.5 text-[11px] font-bold text-red-500">
+      {mensagem}
+    </p>
+  ) : null;
+
 export function ExercicioDetalhesPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,7 +54,13 @@ export function ExercicioDetalhesPage() {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  const { register, handleSubmit, reset, watch } = useForm<ExercicioFormData>();
+  const {
+    register,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<ExercicioFormData>({ mode: "onBlur" });
 
   useEffect(() => {
     // Se o utilizador der F5 e perder a memória, volta para o início de forma segura
@@ -232,6 +251,7 @@ export function ExercicioDetalhesPage() {
               // MODO EDIÇÃO
               // ==========================================
               <motion.form
+                noValidate
                 key="edit"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -246,9 +266,18 @@ export function ExercicioDetalhesPage() {
                         Nome do Exercício
                       </label>
                       <input
-                        {...register("nome", { required: "Obrigatório" })}
+                        {...register("nome", {
+                          required: "O nome é obrigatório",
+                          maxLength: {
+                            value: 100,
+                            message: "Máximo de 100 caracteres",
+                          },
+                        })}
+                        maxLength={100}
+                        aria-invalid={!!errors.nome}
                         className="w-full p-3.5 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none transition-colors text-slate-700 font-medium"
                       />
+                      <Erro mensagem={errors.nome?.message} />
                     </div>
 
                     <div>
@@ -278,9 +307,13 @@ export function ExercicioDetalhesPage() {
                         <FiYoutube className="text-red-500" /> URL do YouTube
                       </label>
                       <input
-                        {...register("videoUrl")}
+                        {...register("videoUrl", {
+                          validate: validarUrlYoutube,
+                        })}
+                        aria-invalid={!!errors.videoUrl}
                         className="w-full p-3.5 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none transition-colors text-slate-700 font-medium"
                       />
+                      <Erro mensagem={errors.videoUrl?.message} />
                     </div>
                   </div>
 
@@ -294,70 +327,84 @@ export function ExercicioDetalhesPage() {
                           Séries (Vezes)
                         </label>
                         <input
-                          type="number"
-                          inputMode="decimal"
-                          {...register("configPadrao.vezes")}
+                          {...atributosNumero("series")}
+                          {...register("configPadrao.vezes", {
+                            validate: (v) => validarNumero(v, "series"),
+                          })}
+                          aria-invalid={!!errors.configPadrao?.vezes}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
+                        <Erro mensagem={errors.configPadrao?.vezes?.message} />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
                           Repetições
                         </label>
                         <input
-                          type="number"
-                          inputMode="decimal"
-                          {...register("configPadrao.repeticoes")}
+                          {...atributosNumero("repeticoes")}
+                          {...register("configPadrao.repeticoes", {
+                            validate: (v) => validarNumero(v, "repeticoes"),
+                          })}
+                          aria-invalid={!!errors.configPadrao?.repeticoes}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
+                        <Erro mensagem={errors.configPadrao?.repeticoes?.message} />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
                           T. de Ação (s)
                         </label>
                         <input
-                          type="number"
-                          inputMode="decimal"
-                          step="0.1"
-                          {...register("configPadrao.tempoAcao")}
+                          {...atributosNumero("tempoPrincipal")}
+                          {...register("configPadrao.tempoAcao", {
+                            validate: (v) => validarNumero(v, "tempoPrincipal"),
+                          })}
+                          aria-invalid={!!errors.configPadrao?.tempoAcao}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
+                        <Erro mensagem={errors.configPadrao?.tempoAcao?.message} />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
                           T. Sub (s)
                         </label>
                         <input
-                          type="number"
-                          inputMode="decimal"
-                          step="0.1"
-                          {...register("configPadrao.tempoSub")}
+                          {...atributosNumero("tempoSecundario")}
+                          {...register("configPadrao.tempoSub", {
+                            validate: (v) => validarNumero(v, "tempoSecundario"),
+                          })}
+                          aria-invalid={!!errors.configPadrao?.tempoSub}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
+                        <Erro mensagem={errors.configPadrao?.tempoSub?.message} />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
                           Descanso (s)
                         </label>
                         <input
-                          type="number"
-                          inputMode="decimal"
-                          step="0.1"
-                          {...register("configPadrao.tempoDescanso")}
+                          {...atributosNumero("tempoDescanso")}
+                          {...register("configPadrao.tempoDescanso", {
+                            validate: (v) => validarNumero(v, "tempoDescanso"),
+                          })}
+                          aria-invalid={!!errors.configPadrao?.tempoDescanso}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
+                        <Erro mensagem={errors.configPadrao?.tempoDescanso?.message} />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
                           Intervalo Séries (s)
                         </label>
                         <input
-                          type="number"
-                          inputMode="decimal"
-                          step="0.1"
-                          {...register("configPadrao.tempoIntervalo")}
+                          {...atributosNumero("tempoDescanso")}
+                          {...register("configPadrao.tempoIntervalo", {
+                            validate: (v) => validarNumero(v, "tempoDescanso"),
+                          })}
+                          aria-invalid={!!errors.configPadrao?.tempoIntervalo}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
+                        <Erro mensagem={errors.configPadrao?.tempoIntervalo?.message} />
                       </div>
                     </div>
                   </div>

@@ -8,7 +8,7 @@ import {
   FiPlayCircle,
   FiHome,
 } from "react-icons/fi";
-import { BottomBar } from "@components";
+import { BottomBar, FalhaAoCarregar } from "@components";
 import {
   tratamentoServices,
   protocolosServices,
@@ -54,6 +54,10 @@ export function MeusProtocolosPage() {
    * forçava uma renderização extra a cada troca de vínculo.
    */
   const [tratamentosDe, setTratamentosDe] = useState<string | null>(null);
+  /** Separa "o paciente não tem tratamento" de "a busca falhou". */
+  const [falhouTratamentos, setFalhouTratamentos] = useState(false);
+  const [falhouVinculos, setFalhouVinculos] = useState(false);
+  const [tentativa, setTentativa] = useState(0);
   const carregandoTratamentos =
     Boolean(vinculoSelecionado) && tratamentosDe !== vinculoSelecionado;
 
@@ -69,6 +73,7 @@ export function MeusProtocolosPage() {
       .then((meusVinculos) => {
         if (cancelado) return;
         setVinculos(meusVinculos || []);
+        setFalhouVinculos(false);
 
         // Com um único vínculo não há o que escolher: já seleciona.
         if (meusVinculos?.length === 1) {
@@ -81,12 +86,13 @@ export function MeusProtocolosPage() {
           "Erro ao executar a primeira etapa (buscar vínculos)",
           error,
         );
+        setFalhouVinculos(true);
       });
 
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [tentativa]);
 
   /**
    * Segunda etapa do fluxo: os tratamentos do vínculo selecionado, já com os
@@ -151,6 +157,7 @@ export function MeusProtocolosPage() {
         if (cancelado) return;
         setTratamentos(tratamentosComDetalhes);
         setTratamentoAberto(null);
+        setFalhouTratamentos(false);
       } catch (error) {
         if (cancelado) return;
         console.error(
@@ -158,6 +165,10 @@ export function MeusProtocolosPage() {
           error,
         );
         setTratamentos([]);
+        // Antes a tela caía no vazio e dizia "Nenhum tratamento nesta
+        // clínica" — um paciente em tratamento ativo concluiria que a
+        // prescrição dele sumiu.
+        setFalhouTratamentos(true);
       } finally {
         if (!cancelado) setTratamentosDe(vinculoSelecionado);
       }
@@ -168,7 +179,7 @@ export function MeusProtocolosPage() {
     return () => {
       cancelado = true;
     };
-  }, [vinculoSelecionado]);
+  }, [vinculoSelecionado, tentativa]);
 
   const tratamentosVisiveis = vinculoSelecionado ? tratamentos : [];
 
@@ -220,7 +231,12 @@ export function MeusProtocolosPage() {
       </header>
 
       <main className="max-w-md mx-auto p-6 space-y-4">
-        {!vinculoSelecionado ? (
+        {falhouVinculos ? (
+          <FalhaAoCarregar
+            oQue="as suas clínicas"
+            onTentarNovamente={() => setTentativa((n) => n + 1)}
+          />
+        ) : !vinculoSelecionado ? (
           <div className="text-center py-12 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-2xl bg-white p-4 font-medium shadow-sm">
             Selecione uma clínica no menu superior para buscar o seu plano de
             tratamentos ativo.
@@ -232,6 +248,14 @@ export function MeusProtocolosPage() {
               A consultar os seus protocolos e dados de exercícios...
             </p>
           </div>
+        ) : falhouTratamentos ? (
+          <FalhaAoCarregar
+            oQue="os seus tratamentos"
+            onTentarNovamente={() => {
+              setTratamentosDe(null);
+              setTentativa((n) => n + 1);
+            }}
+          />
         ) : tratamentosVisiveis.length === 0 ? (
           <div className="bg-white rounded-3xl p-10 text-center border-2 border-dashed border-slate-200 flex flex-col items-center shadow-sm">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">

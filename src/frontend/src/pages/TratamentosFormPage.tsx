@@ -15,7 +15,7 @@ import { useApp } from "@contexts";
 import { clinicasServices } from "@services";
 import { tratamentoServices } from "../services/tratamentoServices"; // Ajuste o caminho se necessário
 import { SeletorPaciente } from "@components"; // Import do novo componente criado!
-import { mensagemDeErro } from "@utils";
+import { mensagemDeErro, validarPeriodo } from "@utils";
 import type { PacienteVinculadoClinica } from "@interfaces";
 
 interface TratamentoFormData {
@@ -42,8 +42,10 @@ export function TratamentosFormPage() {
     handleSubmit,
     control,
     watch,
+    getValues,
     formState: { errors },
   } = useForm<TratamentoFormData>({
+    mode: "onBlur",
     defaultValues: {
       inicio: new Date().toISOString().split("T")[0],
       fim: "",
@@ -144,6 +146,7 @@ export function TratamentosFormPage() {
           </div>
 
           <form
+            noValidate
             onSubmit={handleSubmit(onSubmit)}
             className="p-8 sm:p-10 space-y-8"
           >
@@ -189,7 +192,13 @@ export function TratamentosFormPage() {
                   <input
                     {...register("descricao", {
                       required: "A descrição é obrigatória",
+                      maxLength: {
+                        value: 255,
+                        message: "Máximo de 255 caracteres",
+                      },
                     })}
+                    maxLength={255}
+                    aria-invalid={!!errors.descricao}
                     className={`w-full p-4 bg-slate-50 border rounded-xl outline-none text-sm transition-colors font-medium text-slate-700 ${
                       errors.descricao
                         ? "border-red-500 focus:border-red-500"
@@ -211,9 +220,23 @@ export function TratamentosFormPage() {
                     </label>
                     <input
                       type="date"
-                      {...register("inicio", { required: "Obrigatório" })}
+                      {...register("inicio", {
+                        required: "Informe a data de início",
+                      })}
+                      aria-invalid={!!errors.inicio}
                       className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none text-sm text-slate-700 font-medium transition-colors"
                     />
+                    {/* A regra `required` já existia, mas o erro não era
+                        exibido: tocar em "Iniciar" sem data não fazia nada e
+                        não dizia nada. */}
+                    {errors.inicio && (
+                      <span
+                        role="alert"
+                        className="text-red-500 text-[10px] font-bold mt-1.5 block"
+                      >
+                        {errors.inicio.message}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
@@ -221,9 +244,22 @@ export function TratamentosFormPage() {
                     </label>
                     <input
                       type="date"
-                      {...register("fim")}
+                      {...register("fim", {
+                        validate: (valor) =>
+                          validarPeriodo(getValues("inicio"), valor),
+                      })}
+                      min={watch("inicio") || undefined}
+                      aria-invalid={!!errors.fim}
                       className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none text-sm text-slate-700 font-medium transition-colors"
                     />
+                    {errors.fim && (
+                      <span
+                        role="alert"
+                        className="text-red-500 text-[10px] font-bold mt-1.5 block"
+                      >
+                        {errors.fim.message}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>

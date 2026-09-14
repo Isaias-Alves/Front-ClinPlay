@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { FalhaAoCarregar } from "./FalhaAoCarregar";
 import {
   FiSearch,
   FiX,
@@ -94,6 +95,13 @@ export function BuscarClinicaModal({
   const [clinicas, setClinicas] = useState<ClinicaBusca[]>([]);
   const [pagina, setPagina] = useState(0);
   const [temMais, setTemMais] = useState(false);
+  /** Busca que falhou não é busca sem resultado. */
+  const [falhou, setFalhou] = useState(false);
+  /**
+   * Contador de novas tentativas. Só zerar `pagina` não refaz a busca quando
+   * ela já está em 0 — que é exatamente o caso depois de uma falha.
+   */
+  const [tentativa, setTentativa] = useState(0);
 
   /**
    * Consulta cujo resultado já está em `clinicas`. "Carregando" vira valor
@@ -161,10 +169,12 @@ export function BuscarClinicaModal({
           pagina === 0 ? itens : mesclarSemRepetir(prev, itens),
         );
         setTemMais(ha);
+        setFalhou(false);
       } catch {
         if (cancelado) return;
         if (pagina === 0) setClinicas([]);
         setTemMais(false);
+        setFalhou(true);
       } finally {
         if (!cancelado) setCarregadoDe(chaveBusca);
       }
@@ -176,7 +186,7 @@ export function BuscarClinicaModal({
     };
     // `chaveBusca` deriva exatamente destas entradas.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, busca, filtroEspecialidade, pagina]);
+  }, [isOpen, busca, filtroEspecialidade, pagina, tentativa]);
 
   const handleCarregarMais = () => {
     setPagina((prev) => prev + 1);
@@ -311,6 +321,15 @@ export function BuscarClinicaModal({
                         <div className="py-12 flex justify-center">
                           <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
                         </div>
+                      ) : falhou && clinicas.length === 0 ? (
+                        <FalhaAoCarregar
+                          oQue="a lista de clínicas"
+                          onTentarNovamente={() => {
+                            setCarregadoDe(null);
+                            setFalhou(false);
+                            setTentativa((n) => n + 1);
+                          }}
+                        />
                       ) : clinicas.length === 0 ? (
                         <div className="text-center py-16 px-4">
                           <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full mx-auto mb-4 flex items-center justify-center text-2xl">

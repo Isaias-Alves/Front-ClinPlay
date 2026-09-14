@@ -8,3 +8,5 @@ export * from "./timeUtils";
 export * from "./animations";
 export * from "./formatacao";
 export * from "./youtube";
+export * from "./tema";
+export * from "./limitesExercicio";

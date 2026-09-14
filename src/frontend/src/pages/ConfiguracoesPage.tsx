@@ -1,51 +1,60 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaChevronRight, FaTrash } from "react-icons/fa";
 import { FiSun, FiMoon, FiUser, FiArrowLeft } from "react-icons/fi";
 import { useApp } from "@contexts";
+import { useTema } from "@hooks";
 
 /**
  * Componente de toggle reutilizável.
- * @param ativo - Estado atual do toggle.
- * @param onChange - Função chamada ao alternar.
+ *
+ * O alvo real de toque é maior do que o trilho de 44×24: o `padding` de 10px
+ * na vertical leva a área clicável a 44×44, o mínimo recomendado para uso
+ * com o polegar — sem mudar o desenho.
  */
 const Toggle = ({
   ativo,
   onChange,
+  rotulo,
 }: {
   ativo: boolean;
   onChange: () => void;
+  /** Descreve o que o switch controla, já que ele não tem texto próprio. */
+  rotulo: string;
 }) => (
   <button
+    type="button"
     onClick={onChange}
     role="switch"
     aria-checked={ativo}
-    style={{
-      minWidth: "44px",
-      width: "44px",
-      height: "24px",
-      borderRadius: "9999px",
-      position: "relative",
-      flexShrink: 0,
-      backgroundColor: ativo ? "#10b981" : "#e2e8f0",
-      border: "none",
-      cursor: "pointer",
-      transition: "background-color 0.3s",
-    }}
+    aria-label={rotulo}
+    className="relative box-content shrink-0 cursor-pointer rounded-full border-0 px-0 py-[10px]"
+    style={{ backgroundColor: "transparent" }}
   >
     <span
       style={{
-        position: "absolute",
-        top: "2px",
-        left: ativo ? "22px" : "2px",
-        width: "20px",
-        height: "20px",
-        backgroundColor: "white",
+        display: "block",
+        width: "44px",
+        height: "24px",
         borderRadius: "9999px",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-        transition: "left 0.3s",
+        position: "relative",
+        backgroundColor: ativo ? "#10b981" : "#94a3b8",
+        transition: "background-color 0.3s",
       }}
-    />
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: "2px",
+          left: ativo ? "22px" : "2px",
+          width: "20px",
+          height: "20px",
+          backgroundColor: "white",
+          borderRadius: "9999px",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+          transition: "left 0.3s",
+        }}
+      />
+    </span>
   </button>
 );
 
@@ -56,9 +65,8 @@ const Toggle = ({
 export function ConfiguracoesPage() {
   const navigate = useNavigate();
   const { usuario } = useApp();
-
-  const [modoContraste, setModoContraste] = useState(false);
-  const [modoEscuro, setModoEscuro] = useState(false);
+  const { escuroAtivo, contrasteAtivo, alternarTema, alternarContraste } =
+    useTema();
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-20">
@@ -111,29 +119,41 @@ export function ConfiguracoesPage() {
             Display
           </p>
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+              <div className="flex items-center gap-3 pr-4">
                 <FiSun className="text-slate-500 text-lg flex-shrink-0" />
-                <span className="text-sm font-medium text-slate-700">
-                  Modo Contraste
-                </span>
+                <div>
+                  <span className="text-sm font-medium text-slate-700">
+                    Alto contraste
+                  </span>
+                  <p className="text-xs text-slate-400">
+                    Reforça textos e bordas para leitura mais fácil.
+                  </p>
+                </div>
               </div>
               <Toggle
-                ativo={modoContraste}
-                onChange={() => setModoContraste(!modoContraste)}
+                ativo={contrasteAtivo}
+                onChange={alternarContraste}
+                rotulo="Alto contraste"
               />
             </div>
 
-            <div className="flex items-center justify-between px-5 py-4">
-              <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between px-5 py-3">
+              <div className="flex items-center gap-3 pr-4">
                 <FiMoon className="text-slate-500 text-lg flex-shrink-0" />
-                <span className="text-sm font-medium text-slate-700">
-                  Modo Escuro
-                </span>
+                <div>
+                  <span className="text-sm font-medium text-slate-700">
+                    Modo escuro
+                  </span>
+                  <p className="text-xs text-slate-400">
+                    Menos brilho para usar o app à noite.
+                  </p>
+                </div>
               </div>
               <Toggle
-                ativo={modoEscuro}
-                onChange={() => setModoEscuro(!modoEscuro)}
+                ativo={escuroAtivo}
+                onChange={alternarTema}
+                rotulo="Modo escuro"
               />
             </div>
           </div>

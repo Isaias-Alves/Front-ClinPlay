@@ -32,6 +32,45 @@
     />
 
     <title>ClinPlaY</title>
+
+    <!--
+      Aplica tema e contraste ANTES do React montar.
+
+      Se isso rodasse dentro do app, quem escolheu o modo escuro veria um
+      flash branco a cada abertura — e num PWA aberto pela tela inicial, a
+      cada retomada. Inline e síncrono de propósito: precisa bloquear a
+      primeira pintura.
+    -->
+    <script>
+      (function () {
+        try {
+          var ls = window.localStorage;
+          var tema = ls.getItem("clinplay:tema");
+          var contraste = ls.getItem("clinplay:contraste");
+          var mq = window.matchMedia;
+
+          var escuro =
+            tema === "escuro" ||
+            (tema === null && mq && mq("(prefers-color-scheme: dark)").matches);
+          var alto =
+            contraste === "alto" ||
+            (contraste === null && mq && mq("(prefers-contrast: more)").matches);
+
+          var raiz = document.documentElement;
+          raiz.dataset.tema = escuro ? "escuro" : "claro";
+          raiz.dataset.contraste = alto ? "alto" : "normal";
+          raiz.style.colorScheme = escuro ? "dark" : "light";
+
+          if (escuro) {
+            document
+              .querySelector('meta[name="theme-color"]')
+              .setAttribute("content", "#060b16");
+          }
+        } catch (e) {
+          /* Sem localStorage (modo privado) o app abre no tema claro. */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

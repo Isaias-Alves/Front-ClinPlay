@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaDumbbell, FaTrash, FaPlus, FaPen, FaYoutube } from "react-icons/fa";
 import { BottomBar } from "../components/BottomBar";
+import { FalhaAoCarregar } from "@components";
 import { exerciciosServices } from "@services";
 import { useApp } from "@contexts";
 import { ExercicioInfoResponse } from "@interfaces";
@@ -18,6 +19,8 @@ export function TratamentosProfPage() {
   /** Clínica cujos exercícios já estão em memória. */
   const [carregadosDe, setCarregadosDe] = useState<string | null>(null);
   const [recargasPedidas, setRecargasPedidas] = useState(0);
+  /** Separa "clínica sem exercícios" de "a lista não carregou". */
+  const [falhou, setFalhou] = useState(false);
 
   const chave = `${clinicaSelecionadaId}|${recargasPedidas}`;
   const carregando = Boolean(clinicaSelecionadaId) && carregadosDe !== chave;
@@ -30,12 +33,15 @@ export function TratamentosProfPage() {
     exerciciosServices
       .listarDaClinica(clinicaSelecionadaId)
       .then((lista) => {
-        if (!cancelado) setExercicios(lista);
+        if (cancelado) return;
+        setExercicios(lista);
+        setFalhou(false);
       })
       .catch((error) => {
         if (cancelado) return;
         console.error("Erro ao buscar exercícios", error);
         setExercicios([]);
+        setFalhou(true);
       })
       .finally(() => {
         if (!cancelado) setCarregadosDe(chave);
@@ -100,6 +106,11 @@ export function TratamentosProfPage() {
             <div className="text-center py-12 text-slate-400 text-sm">
               Carregando informações...
             </div>
+          ) : falhou ? (
+            <FalhaAoCarregar
+              oQue="os exercícios"
+              onTentarNovamente={() => setRecargasPedidas((n) => n + 1)}
+            />
           ) : exercicios.length === 0 ? (
             <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
               <p className="text-slate-400 text-sm">

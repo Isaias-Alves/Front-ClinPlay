@@ -9,6 +9,7 @@ import {
   FaLink,
 } from "react-icons/fa";
 import { BottomBar } from "../components/BottomBar";
+import { FalhaAoCarregar } from "@components";
 import { clinicasServices } from "@services";
 import { ClinicaVinculo } from "@interfaces";
 import { tratarErroClinica } from "@utils";
@@ -28,6 +29,8 @@ export function ClinicaPage() {
   // não precisa ligar a flag de forma síncrona, o que forçaria uma
   // renderização extra antes da primeira pintura.
   const [carregando, setCarregando] = useState(true);
+  /** Distingue "sem clínica vinculada" de "não deu para carregar". */
+  const [falhou, setFalhou] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -36,12 +39,15 @@ export function ClinicaPage() {
 
     buscarMinhasClinicas()
       .then((lista) => {
-        if (!cancelado) setClinicas(lista);
+        if (cancelado) return;
+        setClinicas(lista);
+        setFalhou(false);
       })
       .catch((error) => {
         if (cancelado) return;
         console.error("Erro ao buscar clínicas do profissional", error);
         setClinicas([]);
+        setFalhou(true);
       })
       .finally(() => {
         if (!cancelado) setCarregando(false);
@@ -57,9 +63,11 @@ export function ClinicaPage() {
     setCarregando(true);
     try {
       setClinicas(await buscarMinhasClinicas());
+      setFalhou(false);
     } catch (error) {
       console.error("Erro ao buscar clínicas do profissional", error);
       setClinicas([]);
+      setFalhou(true);
     } finally {
       setCarregando(false);
     }
@@ -188,7 +196,12 @@ export function ClinicaPage() {
             Minhas Clínicas ({clinicas.length})
           </h2>
 
-          {clinicas.length === 0 ? (
+          {falhou ? (
+            <FalhaAoCarregar
+              oQue="as suas clínicas"
+              onTentarNovamente={recarregarClinicas}
+            />
+          ) : clinicas.length === 0 ? (
             <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
               <p className="text-slate-400 text-sm">
                 Nenhuma clínica encontrada.

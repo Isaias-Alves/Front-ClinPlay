@@ -190,6 +190,7 @@ export function ClinicaFormPage() {
 
         <div className="p-8 sm:p-12">
           <motion.form
+            noValidate
             onSubmit={handleSubmit(onSubmit)}
             className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6"
             variants={containerVariants}
@@ -216,8 +217,15 @@ export function ClinicaFormPage() {
                 <input
                   {...register("nome", {
                     required: "O nome é obrigatório",
-                    maxLength: 100,
+                    // Sem `message` o react-hook-form guarda uma string
+                    // vazia: o envio era bloqueado e a tela mostrava um
+                    // espaço vermelho em branco, sem dizer o motivo.
+                    maxLength: {
+                      value: 100,
+                      message: "Máximo de 100 caracteres",
+                    },
                   })}
+                  maxLength={100}
                   placeholder="Ex: Clínica Movimento Fisioterapia"
                   className={`w-full p-4 bg-slate-50 border ${errors.nome ? "border-red-400 focus:ring-red-400 focus:shadow-red-50" : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500 focus:shadow-emerald-50"} rounded-2xl outline-none focus:ring-2 focus:ring-opacity-20 transition-all font-medium text-slate-700`}
                 />
@@ -387,7 +395,12 @@ export function ClinicaFormPage() {
                 <input
                   {...register("cidade", {
                     required: "A cidade é obrigatória",
+                    maxLength: {
+                      value: 100,
+                      message: "Máximo de 100 caracteres",
+                    },
                   })}
+                  maxLength={100}
                   placeholder="Ex: Belo Horizonte"
                   className={`w-full p-4 bg-slate-50 border ${errors.cidade ? "border-red-400 focus:ring-red-400 focus:shadow-red-50" : "border-slate-200 focus:border-emerald-500 focus:ring-emerald-500 focus:shadow-emerald-50"} rounded-2xl outline-none focus:ring-2 focus:ring-opacity-20 transition-all font-medium text-slate-700`}
                 />

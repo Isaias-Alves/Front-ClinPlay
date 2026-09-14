@@ -300,7 +300,7 @@ export function StartPagePaciente() {
 
   return (
     <div className="min-h-dvh bg-slate-50 pb-20 relative overflow-hidden">
-      <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:24px_24px] opacity-50"></div>
+      <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(var(--pontilhado)_1px,transparent_1px)] [background-size:24px_24px] opacity-50"></div>
       <div className="absolute top-0 w-full h-[400px] bg-gradient-to-b from-emerald-50/60 to-transparent z-0 pointer-events-none"></div>
 
       <div className="pt-4 px-4 sm:px-6 relative z-10">
