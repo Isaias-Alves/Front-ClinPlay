@@ -41,6 +41,7 @@ import {
 import { useStompClient } from "@hooks";
 import type { IconType } from "react-icons";
 import { formatarCPF, formatarTelefone, mensagemDeErro } from "@utils";
+import { nomeDoJogo } from "@games";
 
 /** Item da grade de permissões de um profissional. */
 interface TogglePermissao {
@@ -883,7 +884,7 @@ export function StartPageProfissional() {
                                       </h3>
                                       <p className="text-[11px] text-slate-400 mt-0.5 truncate flex items-center gap-1">
                                         <span className="uppercase tracking-widest text-emerald-500 font-bold">
-                                          {ex.jogo}
+                                          {nomeDoJogo(ex.jogo)}
                                         </span>
                                         {ex.descricao && (
                                           <span>• {ex.descricao}</span>

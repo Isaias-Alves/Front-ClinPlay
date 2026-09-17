@@ -20,6 +20,7 @@ import {
   validarNumero,
   atributosNumero,
 } from "@utils";
+import { nomeDoJogo } from "@games";
 
 interface ExercicioFormData {
   nome: string;
@@ -135,7 +136,7 @@ export function ExercicioDetalhesPage() {
                   {currentFormValues.nome || "Exercício"}
                 </h2>
                 <p className="text-sm font-bold text-emerald-600 mt-1 uppercase tracking-widest flex items-center gap-1.5">
-                  Motor: {currentFormValues.jogo || "Indefinido"}
+                  Motor: {nomeDoJogo(currentFormValues.jogo)}
                 </p>
               </div>
             </div>
@@ -284,12 +285,19 @@ export function ExercicioDetalhesPage() {
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
                         Motor do Jogo
                       </label>
-                      <input
-                        {...register("jogo")}
-                        disabled
-                        className="w-full p-3.5 bg-slate-100 border border-slate-200 rounded-xl outline-none text-slate-400 font-medium cursor-not-allowed"
+                      {/*
+                        O campo guarda o valor do enum (SUBMARINO), que é o
+                        que o backend espera — mas era ele que aparecia na
+                        tela. Agora o enum vai num input escondido e a caixa
+                        visível mostra o nome legível do motor.
+                      */}
+                      <input type="hidden" {...register("jogo")} />
+                      <p
+                        className="w-full rounded-xl border border-slate-200 bg-slate-100 p-3.5 font-medium text-slate-400"
                         title="O motor base não pode ser alterado após a criação."
-                      />
+                      >
+                        {nomeDoJogo(currentFormValues.jogo)}
+                      </p>
                     </div>
 
                     <div>

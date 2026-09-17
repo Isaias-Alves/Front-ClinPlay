@@ -7,6 +7,7 @@ import { exerciciosServices } from "@services";
 import { useApp } from "@contexts";
 import { ExercicioInfoResponse } from "@interfaces";
 import { mensagemDeErro } from "@utils";
+import { nomeDoJogo } from "@games";
 
 export function TratamentosProfPage() {
   const [exercicios, setExercicios] = useState<ExercicioInfoResponse[]>([]);
@@ -130,7 +131,7 @@ export function TratamentosProfPage() {
                   <div>
                     <h3 className="font-bold text-slate-700">{item.nome}</h3>
                     <p className="text-xs text-slate-400">
-                      Motor: {item.jogo || "---"}
+                      Motor: {nomeDoJogo(item.jogo)}
                     </p>
                     <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                       {item.descricao}

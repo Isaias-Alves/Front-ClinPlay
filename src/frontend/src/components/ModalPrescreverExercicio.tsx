@@ -17,6 +17,7 @@ import {
 } from "@utils";
 import type { ExercicioConfig, ExercicioInfoResponse } from "@interfaces";
 import { PatternFormat } from "react-number-format"; // IMPORT ADICIONADO AQUI!
+import { nomeDoJogo } from "@games";
 
 /** Corpo de `ADICIONAR_PRESCRICAO` enviado pela sala de tratamento. */
 export interface PrescricaoPayload {
@@ -279,7 +280,7 @@ export const ModalPrescreverExercicio: React.FC<
                                 {ex.nome}
                               </h4>
                               <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mt-1">
-                                {ex.jogo}
+                                {nomeDoJogo(ex.jogo)}
                               </p>
                             </div>
                             <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 group-hover:bg-emerald-500 group-hover:text-white flex items-center justify-center transition-colors shrink-0 shadow-sm">
@@ -308,7 +309,7 @@ export const ModalPrescreverExercicio: React.FC<
                             {exercicioParaPrescrever.nome}
                           </h4>
                           <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-widest mt-0.5">
-                            Motor: {exercicioParaPrescrever.jogo}
+                            Motor: {nomeDoJogo(exercicioParaPrescrever.jogo)}
                           </p>
                         </div>
                       </div>

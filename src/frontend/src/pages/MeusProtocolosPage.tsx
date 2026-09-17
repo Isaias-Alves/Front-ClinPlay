@@ -21,6 +21,7 @@ import type {
   TratamentoResponseApi,
 } from "@interfaces";
 import { useApp } from "@contexts";
+import { nomeDoJogo } from "@games";
 
 interface TratamentoExibicao extends TratamentoResponseApi {
   protocoloNome?: string;
@@ -348,7 +349,7 @@ export function MeusProtocolosPage() {
                                   {ex.nome_exercicio}
                                 </p>
                                 <span className="inline-block text-[10px] font-medium text-slate-500 mt-0.5 px-2 py-0.5 bg-slate-100 rounded-md">
-                                  {ex.jogo}
+                                  {nomeDoJogo(ex.jogo)}
                                 </span>
                               </div>
                             </div>

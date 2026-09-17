@@ -39,14 +39,27 @@ export interface PropsMotorVisual {
 
 /** Metadados + componente de um jogo, usados na vitrine e na execução. */
 export interface JogoDefinicao {
-  /** Deve corresponder a um valor do enum `Jogo` do backend. */
+  /**
+   * Deve corresponder a um valor do enum `Jogo` do backend. Os valores
+   * herdados (FLAPPY_BIRD, SPACE_SHOOTER, SUBMARINO) não descrevem o que os
+   * motores desenham — é para isso que existe o `nome`.
+   */
   id: string;
+  /** O que a pessoa lê. Descreve o desenho, não o id herdado. */
   nome: string;
+  /** Duas ou três palavras para a etiqueta sobre a prévia. */
+  resumo: string;
   descricao: string;
   icone: ReactNode;
   corTexto: string;
   corFundo: string;
   componente: ComponentType<PropsMotorVisual>;
+  /**
+   * Fator aplicado ao motor dentro da prévia da vitrine. Os motores são
+   * desenhados em tamanho de tela cheia (a esfera chega a 320px com os anéis,
+   * a pista a 576px); no cartão eles precisam ser reduzidos.
+   */
+  escalaPrevia: number;
   /**
    * `false` enquanto o motor visual próprio não existir. O id continua no
    * registro porque espelha o enum `Jogo` do backend — o que muda é que a

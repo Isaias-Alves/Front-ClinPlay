@@ -11,6 +11,7 @@ import { protocolosServices } from "@services";
 import { exerciciosServices } from "@services";
 import { ProtocoloResponseApi, ExercicioInfoResponse } from "@interfaces";
 import { useApp } from "@contexts";
+import { nomeDoJogo } from "@games";
 
 const BADGE_CORES: Record<string, string> = {
   Alongamento: "bg-blue-50 text-blue-600",
@@ -188,7 +189,7 @@ export function ProtocoloDetalhesPage() {
                         BADGE_CORES[ex.jogo] || "bg-slate-100 text-slate-600"
                       }`}
                     >
-                      {ex.jogo}
+                      {nomeDoJogo(ex.jogo)}
                     </span>
                   </div>
                   <FiChevronRight className="text-slate-300 flex-shrink-0" />

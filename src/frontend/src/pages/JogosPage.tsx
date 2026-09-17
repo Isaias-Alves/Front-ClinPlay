@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { FiArrowLeft, FiArrowRight, FiPlay } from "react-icons/fi";
-import { JOGOS } from "@games";
+import { JOGOS, PreviaJogo } from "@games";
 import { criarContainerVariants, criarItemVariants } from "@utils";
 
 const containerVariants = criarContainerVariants(0.08);
@@ -42,8 +42,9 @@ export function JogosPage() {
           Selecione o Motor Visual
         </motion.h1>
         <p className="px-2 text-sm font-medium text-slate-500 md:text-base">
-          Cada motor possui uma dinâmica de Biofeedback diferente. Escolha o que
-          melhor se adapta ao objetivo clínico.
+          Cada motor mostra o esforço do paciente de um jeito diferente. As
+          prévias abaixo são os próprios motores rodando — é o que o paciente
+          vai ver na tela.
         </p>
       </header>
 
@@ -63,16 +64,35 @@ export function JogosPage() {
             key={jogo.id}
             variants={itemVariants}
             whileHover={jogo.disponivel ? { y: -6 } : undefined}
-            className={`flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60 sm:p-8 ${
+            className={`flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-6 ${
               jogo.disponivel ? "" : "opacity-60"
             }`}
           >
             <div>
-              <div
-                className={`mb-6 flex h-16 w-16 items-center justify-center rounded-2xl text-3xl shadow-sm ${jogo.corFundo} ${jogo.corTexto}`}
-              >
-                {jogo.icone}
+              {/*
+                A prévia vem antes do texto: a decisão do profissional é
+                sobre o que o paciente vai ver na tela, e isso se resolve
+                olhando, não lendo. Antes o cartão trazia só um ícone
+                genérico (um controle de videogame para uma esfera que
+                pulsa), o que não dizia nada sobre o motor.
+              */}
+              <div className="relative mb-5">
+                <PreviaJogo jogo={jogo} />
+
+                <span className="absolute left-3 top-3 rounded-full bg-black/40 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur-sm">
+                  {jogo.resumo}
+                </span>
+
+                {/* No topo, e não no rodapé: embaixo o emblema cobria os
+                    rótulos que a pista desenha nas extremidades. */}
+                <div
+                  aria-hidden
+                  className={`absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-xl text-xl shadow-sm ${jogo.corFundo} ${jogo.corTexto}`}
+                >
+                  {jogo.icone}
+                </div>
               </div>
+
               <div className="mb-3 flex flex-wrap items-center gap-2">
                 <h2 className="text-2xl font-bold text-slate-800">
                   {jogo.nome}
@@ -83,7 +103,7 @@ export function JogosPage() {
                   </span>
                 )}
               </div>
-              <p className="mb-8 text-sm font-medium leading-relaxed text-slate-400">
+              <p className="mb-8 text-sm font-medium leading-relaxed text-slate-500">
                 {jogo.descricao}
               </p>
             </div>

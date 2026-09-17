@@ -25,6 +25,7 @@ import type {
   TratamentoResponseApi,
   ProfissionalVinculado,
 } from "@interfaces";
+import { nomeDoJogo } from "@games";
 
 interface ProtocoloFormInputs {
   nome: string;
@@ -606,7 +607,7 @@ export function ProtocolosFormPage() {
                     <p className="text-sm font-semibold text-slate-700 leading-tight truncate">
                       {ex.nome}
                     </p>
-                    <span className="text-xs text-slate-500">{ex.jogo}</span>
+                    <span className="text-xs text-slate-500">{nomeDoJogo(ex.jogo)}</span>
                   </div>
                   <button
                     type="button"
