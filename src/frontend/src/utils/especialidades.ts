@@ -14,8 +14,13 @@ export const ESPECIALIDADES = [
   "Fisioterapia em Terapia Intensiva",
   "Fisioterapia Esportiva",
   "Fisioterapia Neurofuncional",
+  "Fisioterapia Pélvica",
   "Fisioterapia Respiratória",
   "Fisioterapia Traumato-Ortopédica",
+  // Fora da ordem alfabética de propósito: "Pilates" não é uma
+  // "Fisioterapia X", e "Outras Fisioterapias" é a opção de escape — tem
+  // que continuar sendo a última da lista.
+  "Pilates",
   "Outras Fisioterapias",
 ] as const;
 
