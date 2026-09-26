@@ -196,7 +196,7 @@ export function TratamentoSalaPage() {
     if (
       !(await confirmar({
         mensagem:
-          "Tem certeza que deseja finalizar este tratamento? O paciente não poderá mais realizar exercícios vinculados a este protocolo.",
+          "Finalizar este tratamento? O paciente pode fazer os exercícios até o fim de hoje; depois disso, o acesso é encerrado.",
         rotuloConfirmar: "Finalizar",
         destrutivo: true,
       }))

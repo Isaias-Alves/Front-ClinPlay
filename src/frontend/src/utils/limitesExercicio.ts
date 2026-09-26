@@ -121,3 +121,14 @@ export const validarPeriodo = (
   // Datas ISO (`yyyy-MM-dd`) comparam corretamente como texto.
   return fim >= inicio || "A previsão de alta não pode ser antes do início";
 };
+
+/** Data de hoje no fuso do aparelho, no mesmo formato ISO que a API usa. */
+export const hojeISO = (): string => new Date().toLocaleDateString("sv-SE");
+
+/**
+ * `fim` é a data limite de acesso, e não uma marca de "finalizado": com data
+ * no futuro o tratamento segue ativo. Antes, qualquer data preenchida no
+ * cadastro escondia o tratamento do paciente no mesmo dia.
+ */
+export const tratamentoEncerrado = (t: { fim?: string | null }): boolean =>
+  Boolean(t.fim && t.fim < hojeISO());

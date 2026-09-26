@@ -40,7 +40,12 @@ import {
 } from "react-icons/fi";
 import { useStompClient } from "@hooks";
 import type { IconType } from "react-icons";
-import { formatarCPF, formatarTelefone, mensagemDeErro } from "@utils";
+import {
+  formatarCPF,
+  formatarTelefone,
+  mensagemDeErro,
+  tratamentoEncerrado,
+} from "@utils";
 import { nomeDoJogo } from "@games";
 
 /** Item da grade de permissões de um profissional. */
@@ -523,7 +528,7 @@ export function StartPageProfissional() {
   const pacientesFiltrados = pacientesClinica
     .filter((pac) => {
       const isEmTratamento = meusTratamentos.some(
-        (t) => t.pacienteId === pac.pacienteId && !t.fim,
+        (t) => t.pacienteId === pac.pacienteId && !tratamentoEncerrado(t),
       );
       if (filtroTratamento === "sim") return isEmTratamento;
       if (filtroTratamento === "nao") return !isEmTratamento;
