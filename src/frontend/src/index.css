@@ -95,6 +95,16 @@ body {
 
 /* ---- Fundos ---------------------------------------------------------- */
 
+/* Avisos âmbar (`FalhaAoCarregar`, banner da data limite). O âmbar claro
+   sobre fundo escuro virava um bloco cinza com o texto ilegível. */
+[data-tema="escuro"] .bg-amber-50\/60 {
+    background-color: #f59e0b14;
+}
+
+[data-tema="escuro"] .border-amber-200 {
+    border-color: #f59e0b59;
+}
+
 [data-tema="escuro"] body,
 [data-tema="escuro"] .bg-slate-50,
 [data-tema="escuro"] .bg-slate-50\/50,
