@@ -31,7 +31,7 @@ interface TratamentoFormData {
 
 export function TratamentosFormPage() {
   const navigate = useNavigate();
-  const { clinicaSelecionadaId, notificar, refreshData } = useApp();
+  const { clinicaSelecionadaId, notificar, refreshData, confirmar } = useApp();
 
   const [pacientes, setPacientes] = useState<PacienteVinculadoClinica[]>([]);
   const [carregandoPacientes, setCarregandoPacientes] = useState(true);
@@ -88,7 +88,6 @@ export function TratamentosFormPage() {
     }
     setIsSubmitting(true);
     try {
-      // O campo "fim" está a ser enviado aqui. Lembre o backend de adicionar no DTO!
       const payload = {
         clinPacienteId: data.clinPacienteId,
         descricao: data.descricao,
@@ -100,10 +99,27 @@ export function TratamentosFormPage() {
         },
       };
 
-      await tratamentoServices.criar(clinicaSelecionadaId, payload);
-      notificar("Tratamento iniciado com sucesso!", "sucesso");
+      const criado = await tratamentoServices.criar(
+        clinicaSelecionadaId,
+        payload,
+      );
       await refreshData();
-      navigate("/inicio-profissional");
+
+      // Todo tratamento nasce sem exercícios: eles só entram pela sala. Sem
+      // este aviso o fisioterapeuta voltava ao início achando que tinha
+      // terminado, e o paciente abria o app e não encontrava nada para fazer.
+      const adicionarAgora = await confirmar({
+        titulo: "Falta adicionar os exercícios",
+        mensagem:
+          "O tratamento foi criado, mas ainda não tem exercícios. O paciente só vê atividades depois que você adicionar pelo menos uma.",
+        rotuloConfirmar: "Adicionar agora",
+        rotuloCancelar: "Depois",
+      });
+      if (adicionarAgora)
+        navigate(`/tratamentos/sala/${criado.id}`, {
+          state: { tratamentoBase: criado },
+        });
+      else navigate("/inicio-profissional");
     } catch (error) {
       notificar(mensagemDeErro(error, "Erro ao criar tratamento."), "erro");
     } finally {

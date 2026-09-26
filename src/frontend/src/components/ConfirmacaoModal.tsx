@@ -2,9 +2,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FiAlertTriangle } from "react-icons/fi";
 
 export interface PedidoConfirmacao {
+  /** Linha em destaque acima da mensagem. Opcional. */
+  titulo?: string;
   mensagem: string;
   /** Texto do botão que confirma. Padrão: "Confirmar". */
   rotuloConfirmar?: string;
+  /** Texto do botão que recusa. Padrão: "Cancelar". */
+  rotuloCancelar?: string;
   /** Ação destrutiva pinta o botão de vermelho. */
   destrutivo?: boolean;
 }
@@ -29,8 +33,10 @@ interface ConfirmacaoModalProps extends PedidoConfirmacao {
  */
 export const ConfirmacaoModal = ({
   isOpen,
+  titulo,
   mensagem,
   rotuloConfirmar = "Confirmar",
+  rotuloCancelar = "Cancelar",
   destrutivo = false,
   onConfirmar,
   onCancelar,
@@ -64,9 +70,16 @@ export const ConfirmacaoModal = ({
             >
               <FiAlertTriangle />
             </div>
-            <p className="pt-1 text-sm font-medium leading-relaxed text-slate-700">
-              {mensagem}
-            </p>
+            <div className="pt-1">
+              {titulo && (
+                <p className="mb-1 text-base font-bold text-slate-800">
+                  {titulo}
+                </p>
+              )}
+              <p className="text-sm font-medium leading-relaxed text-slate-700">
+                {mensagem}
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-3">
@@ -75,7 +88,7 @@ export const ConfirmacaoModal = ({
               onClick={onCancelar}
               className="min-h-12 flex-1 rounded-2xl border border-slate-200 text-sm font-bold text-slate-600 transition-colors active:bg-slate-100"
             >
-              Cancelar
+              {rotuloCancelar}
             </button>
             <button
               type="button"

@@ -305,8 +305,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     >
       <ConfirmacaoModal
         isOpen={Boolean(confirmacao)}
+        titulo={confirmacao?.titulo}
         mensagem={confirmacao?.mensagem ?? ""}
         rotuloConfirmar={confirmacao?.rotuloConfirmar}
+        rotuloCancelar={confirmacao?.rotuloCancelar}
         destrutivo={confirmacao?.destrutivo}
         onConfirmar={() => responderConfirmacao(true)}
         onCancelar={() => responderConfirmacao(false)}
