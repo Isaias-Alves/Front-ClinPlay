@@ -18,6 +18,7 @@ import {
   FiStar,
   FiPower,
   FiCheck,
+  FiEdit2,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import { mensagemDeErro, validarPeriodo } from "@utils";
@@ -69,6 +70,20 @@ function salaReducer(estado: EstadoSala, evento: EventoTratamento): EstadoSala {
                 ...prescricoesDe(estado.tratamento),
                 evento.prescricao,
               ].sort((a, b) => a.ordem - b.ordem),
+            }
+          : null,
+      };
+    case "PRESCRICAO_EDITADA":
+      return {
+        ...estado,
+        tratamento: estado.tratamento
+          ? {
+              ...estado.tratamento,
+              prescricoes: prescricoesDe(estado.tratamento).map((p) =>
+                p.id === evento.prescricao.id
+                  ? { ...p, ...evento.prescricao }
+                  : p,
+              ),
             }
           : null,
       };
@@ -160,6 +175,8 @@ export function TratamentoSalaPage() {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [prescricaoEmEdicao, setPrescricaoEmEdicao] =
+    useState<PrescricaoView | null>(null);
   const [exerciciosClinica, setExerciciosClinica] = useState<
     ExercicioInfoResponse[]
   >([]);
@@ -179,6 +196,8 @@ export function TratamentoSalaPage() {
       dispatch(evento);
       if (evento.evento === "PRESCRICAO_ADICIONADA")
         notificar("Exercício anexado com sucesso!", "sucesso");
+      else if (evento.evento === "PRESCRICAO_EDITADA")
+        notificar("Prescrição atualizada.", "sucesso");
       else if (evento.evento === "PRESCRICAO_REMOVIDA")
         notificar("Prescrição removida do tratamento.", "sucesso");
       else if (evento.evento === "TRATAMENTO_EDITADO")
@@ -257,12 +276,32 @@ export function TratamentoSalaPage() {
     }
   };
 
-  const handleConfirmarPrescricao = (payload: PrescricaoPayload) => {
-    enviar({
-      tipo: "ADICIONAR_PRESCRICAO",
-      ...payload,
-    });
+  const fecharModalPrescricao = () => {
     setIsModalOpen(false);
+    setPrescricaoEmEdicao(null);
+  };
+
+  const abrirEdicaoPrescricao = (prescricao: PrescricaoView) => {
+    setPrescricaoEmEdicao(prescricao);
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmarPrescricao = (payload: PrescricaoPayload) => {
+    if (prescricaoEmEdicao) {
+      // O exercício de uma prescrição não muda; para trocar, remove e adiciona.
+      const { exercicioId: _exercicioId, ...alteracoes } = payload;
+      enviar({
+        tipo: "EDITAR_PRESCRICAO",
+        prescricaoId: prescricaoEmEdicao.id,
+        ...alteracoes,
+      });
+    } else {
+      enviar({
+        tipo: "ADICIONAR_PRESCRICAO",
+        ...payload,
+      });
+    }
+    fecharModalPrescricao();
   };
 
   const handleRemoverPrescricao = async (prescricaoId: string) => {
@@ -500,13 +539,24 @@ export function TratamentoSalaPage() {
                         <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center text-xl shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
                           <FiActivity />
                         </div>
-                        <button
-                          onClick={() => handleRemoverPrescricao(p.id)}
-                          className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                          title="Remover Prescrição"
-                        >
-                          <FiX className="text-lg" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => abrirEdicaoPrescricao(p)}
+                            className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
+                            title="Editar prescrição"
+                            aria-label={`Editar prescrição de ${p.exercicioNome}`}
+                          >
+                            <FiEdit2 className="text-lg" />
+                          </button>
+                          <button
+                            onClick={() => handleRemoverPrescricao(p.id)}
+                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                            title="Remover Prescrição"
+                            aria-label={`Remover prescrição de ${p.exercicioNome}`}
+                          >
+                            <FiX className="text-lg" />
+                          </button>
+                        </div>
                       </div>
 
                       <h3 className="font-extrabold text-slate-800 text-lg leading-tight group-hover:text-emerald-700 transition-colors">
@@ -697,10 +747,11 @@ export function TratamentoSalaPage() {
       {/* MODAL 2 FOI EXTRAÍDO PARA AQUI! */}
       <ModalPrescreverExercicio
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={fecharModalPrescricao}
         exercicios={exerciciosClinica}
         carregando={carregandoExercicios}
         onConfirm={handleConfirmarPrescricao}
+        prescricaoEmEdicao={prescricaoEmEdicao}
       />
 
       {/* MODAL 3: FEEDBACKS DO PACIENTE */}
