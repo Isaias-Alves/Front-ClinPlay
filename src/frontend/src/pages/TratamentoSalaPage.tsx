@@ -21,7 +21,12 @@ import {
   FiEdit2,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-import { mensagemDeErro, validarPeriodo } from "@utils";
+import {
+  formatarDataISO,
+  mensagemDeErro,
+  tratamentoEncerrado,
+  validarPeriodo,
+} from "@utils";
 import type {
   ErroSocket,
   EventoTratamento,
@@ -329,7 +334,7 @@ export function TratamentoSalaPage() {
   const handleSalvarConfig = () => {
     /**
      * Este modal não validava nada e fechava sempre. Dava para apagar o
-     * objetivo do tratamento e marcar a alta para antes do início — o
+     * objetivo do tratamento e marcar a data limite antes do início — o
      * período virava negativo e a barra de progresso do paciente saía
      * quebrada, sem nenhum aviso de que algo tinha dado errado.
      */
@@ -441,7 +446,7 @@ export function TratamentoSalaPage() {
       </div>
 
       <main className="max-w-5xl mx-auto px-4 mt-10 space-y-8 relative z-10">
-        {/* Banner de Alta / Fim */}
+        {/* Banner da data limite de acesso */}
         <AnimatePresence>
           {t?.fim && (
             <motion.div
@@ -454,14 +459,14 @@ export function TratamentoSalaPage() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-800">
-                  Tratamento Programado para Alta
+                  {tratamentoEncerrado(t)
+                    ? `Acesso encerrado em ${formatarDataISO(t.fim)}`
+                    : `Acesso liberado até ${formatarDataISO(t.fim)}`}
                 </h3>
                 <p className="text-xs text-slate-600 font-medium mt-0.5">
-                  Os exercícios serão bloqueados após o dia{" "}
-                  <span className="font-bold text-slate-800">
-                    {new Date(t.fim).toLocaleDateString("pt-BR")}
-                  </span>
-                  .
+                  {tratamentoEncerrado(t)
+                    ? "O paciente não consegue mais fazer os exercícios deste tratamento."
+                    : "Depois dessa data o paciente não consegue mais fazer os exercícios."}
                 </p>
               </div>
             </motion.div>
@@ -663,7 +668,7 @@ export function TratamentoSalaPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <FiCalendar /> Data de Previsão de Alta
+                    <FiCalendar /> Data limite de acesso do tratamento
                   </label>
                   <input
                     type="date"

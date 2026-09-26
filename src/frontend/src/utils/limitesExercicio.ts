@@ -106,20 +106,21 @@ export const validarHHMM = (valor: string | undefined): true | string => {
 };
 
 /**
- * Valida a data de alta contra a de início.
+ * Valida a data limite de acesso contra a de início.
  *
- * Nada impedia marcar a previsão de alta antes do começo do tratamento; o
- * período resultante era negativo e a barra de progresso do paciente saía
- * quebrada.
+ * Uma data limite antes do começo do tratamento deixava o período negativo e
+ * quebrava a barra de progresso do paciente.
  */
 export const validarPeriodo = (
   inicio: string | undefined,
   fim: string | undefined,
 ): true | string => {
-  if (!fim) return true; // A previsão de alta é opcional.
+  if (!fim) return true; // A data limite é opcional.
   if (!inicio) return true; // O erro pertence ao campo de início.
   // Datas ISO (`yyyy-MM-dd`) comparam corretamente como texto.
-  return fim >= inicio || "A previsão de alta não pode ser antes do início";
+  return (
+    fim >= inicio || "A data limite não pode ser anterior ao início do tratamento"
+  );
 };
 
 /** Data de hoje no fuso do aparelho, no mesmo formato ISO que a API usa. */

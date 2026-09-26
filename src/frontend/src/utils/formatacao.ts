@@ -22,3 +22,10 @@ export const formatarTelefone = (valor?: string | null): string => {
     return digitos.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
   return valor || "---";
 };
+
+/**
+ * Data da API (`yyyy-MM-dd`) no formato dd/mm/aaaa, sem passar por `Date`:
+ * `new Date("2026-10-05")` é meia-noite em UTC, que no Brasil ainda é o dia 4.
+ */
+export const formatarDataISO = (iso: string): string =>
+  iso.slice(0, 10).split("-").reverse().join("/");
