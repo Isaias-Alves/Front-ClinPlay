@@ -308,7 +308,7 @@ export function ExercicioFormPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-2">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
+                  <label className="min-h-[3em] flex items-end text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
                     {rotulos.principal.rotulo} (s)
                   </label>
                   <input
@@ -325,7 +325,7 @@ export function ExercicioFormPage() {
                   </span>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
+                  <label className="min-h-[3em] flex items-end text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
                     {rotulos.secundario.rotulo} (s)
                   </label>
                   <input
@@ -342,7 +342,7 @@ export function ExercicioFormPage() {
                   </span>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
+                  <label className="min-h-[3em] flex items-end text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
                     {rotulos.descanso.rotulo} (s)
                   </label>
                   <input
@@ -359,7 +359,7 @@ export function ExercicioFormPage() {
                   </span>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1.5">
+                  <label className="min-h-[3em] flex items-end text-[10px] font-bold text-slate-700 mb-1.5">
                     SÉRIES NO JOGO
                   </label>
                   <input
@@ -373,7 +373,7 @@ export function ExercicioFormPage() {
                   <Erro mensagem={errors.configPadrao?.series?.message} />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-700 mb-1.5">
+                  <label className="min-h-[3em] flex items-end text-[10px] font-bold text-slate-700 mb-1.5">
                     REPETIÇÕES/SÉRIE
                   </label>
                   <input

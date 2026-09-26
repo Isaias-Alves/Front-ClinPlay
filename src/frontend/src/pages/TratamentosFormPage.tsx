@@ -256,7 +256,7 @@ export function TratamentosFormPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
-                      <FiCalendar /> DATA LIMITE DE ACESSO DO TRATAMENTO (OPCIONAL)
+                      <FiCalendar /> DATA LIMITE DE ACESSO DO TRATAMENTO
                     </label>
                     <input
                       type="date"
@@ -269,8 +269,8 @@ export function TratamentosFormPage() {
                       className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none text-sm text-slate-700 font-medium transition-colors"
                     />
                     <span className="text-[10px] text-slate-400 mt-1.5 block">
-                      Depois dessa data o paciente não consegue mais fazer os
-                      exercícios. Deixe em branco para não ter prazo.
+                      Opcional. Depois dessa data o paciente não consegue mais
+                      fazer os exercícios.
                     </span>
                     {errors.fim && (
                       <span
