@@ -94,6 +94,13 @@ const renovarToken = (): Promise<string> => {
   return refreshEmAndamento;
 };
 
+/** Refresh recusado de verdade: sem token guardado, ou 400/401 do servidor. */
+const sessaoRecusada = (falha: unknown): boolean => {
+  if (!axios.isAxiosError(falha)) return true;
+  const status = falha.response?.status;
+  return status === 400 || status === 401;
+};
+
 /** Encerra a sessão local e devolve o usuário ao login, sem recarregar a app duas vezes. */
 const encerrarSessao = () => {
   tokenStorage.limpar();
@@ -119,9 +126,17 @@ api.interceptors.response.use(
       const novoToken = await renovarToken();
       requisicao.headers.Authorization = `Bearer ${novoToken}`;
       return api(requisicao);
-    } catch {
-      encerrarSessao();
-      return Promise.reject(erro);
+    } catch (falha) {
+      // Só desloga quando o servidor recusou o refresh token. Rede fora ou
+      // API acordando (Render) devolvem erro sem status ou 5xx; nesses casos
+      // o PWA reaberto mantinha a sessão válida e mesmo assim caía no login.
+      if (sessaoRecusada(falha)) {
+        encerrarSessao();
+        return Promise.reject(erro);
+      }
+      // Propaga a falha de rede, e não o 401 original: quem chamou precisa
+      // saber que a sessão continua válida e que vale tentar de novo.
+      return Promise.reject(falha);
     }
   },
 );
