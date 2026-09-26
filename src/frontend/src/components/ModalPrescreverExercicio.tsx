@@ -22,7 +22,7 @@ import type {
   PrescricaoView,
 } from "@interfaces";
 import { PatternFormat } from "react-number-format"; // IMPORT ADICIONADO AQUI!
-import { nomeDoJogo } from "@games";
+import { nomeDoJogo, rotulosDosTempos } from "@games";
 
 /** Corpo de `ADICIONAR_PRESCRICAO` enviado pela sala de tratamento. */
 export interface PrescricaoPayload {
@@ -54,18 +54,23 @@ type CampoNumerico = Extract<
   | "tempoDescanso"
 >;
 
-/** Grade de ajustes finos do motor, na ordem em que aparece na tela. */
-const CAMPOS_NUMERICOS: Array<{
-  label: string;
-  key: CampoNumerico;
-  step?: string;
-}> = [
+/** Contagens do motor, na ordem em que aparecem na tela. */
+const CAMPOS_CONTAGEM: Array<{ label: string; key: CampoNumerico }> = [
   { label: "Sessões/Dia", key: "vezesAoDia" },
   { label: "Séries", key: "series" },
   { label: "Reps", key: "repeticoes" },
-  { label: "T. Princ (s)", key: "tempoPrincipal", step: "0.1" },
-  { label: "T. Sec (s)", key: "tempoSecundario", step: "0.1" },
-  { label: "Pausa (s)", key: "tempoDescanso", step: "0.1" },
+];
+
+/** Tempos do motor; os rótulos saem de `rotulosDosTempos`. */
+const CAMPOS_TEMPO = [
+  { key: "tempoPrincipal", rotulo: "principal" },
+  { key: "tempoSecundario", rotulo: "secundario" },
+  { key: "tempoDescanso", rotulo: "descanso" },
+] as const;
+
+const CAMPOS_NUMERICOS: CampoNumerico[] = [
+  ...CAMPOS_CONTAGEM.map((c) => c.key),
+  ...CAMPOS_TEMPO.map((c) => c.key),
 ];
 
 /** O que o modal precisa saber do exercício escolhido (ou já prescrito). */
@@ -161,6 +166,13 @@ export const ModalPrescreverExercicio: React.FC<
     }
   }
 
+  // Recalculado a cada tecla: os rótulos seguem a ação digitada acima.
+  const rotulos = rotulosDosTempos(
+    exercicioParaPrescrever?.jogo,
+    formPrescricao.acaoPrincipal,
+    formPrescricao.acaoSecundaria,
+  );
+
   const exerciciosFiltrados = exercicios.filter(
     (ex) =>
       ex.nome.toLowerCase().includes(buscaExercicio.toLowerCase()) ||
@@ -183,10 +195,7 @@ export const ModalPrescreverExercicio: React.FC<
     if (!formPrescricao.acaoSecundaria.trim())
       achados.acaoSecundaria = "Obrigatório";
 
-    for (const campo of [
-      ...CAMPOS_NUMERICOS.map((c) => c.key),
-      "diasInativo" as const,
-    ]) {
+    for (const campo of [...CAMPOS_NUMERICOS, "diasInativo" as const]) {
       const resultado = validarNumero(formPrescricao[campo], campo);
       if (resultado !== true) achados[campo] = resultado;
     }
@@ -433,16 +442,20 @@ export const ModalPrescreverExercicio: React.FC<
                       <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2 mb-4 border-b border-slate-700 pb-3">
                         <FiSliders /> Parâmetros do Motor
                       </h4>
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                        {CAMPOS_NUMERICOS.map((campo) => (
+                      <div className="grid grid-cols-3 gap-3">
+                        {CAMPOS_CONTAGEM.map((campo) => (
                           <div
                             key={campo.key}
                             className="bg-slate-800 p-2 rounded-xl border border-slate-700"
                           >
-                            <label className="block text-[9px] font-bold text-slate-400 uppercase text-center mb-1">
+                            <label
+                              htmlFor={`prescricao-${campo.key}`}
+                              className="block text-[9px] font-bold text-slate-400 uppercase text-center mb-1"
+                            >
                               {campo.label}
                             </label>
                             <input
+                              id={`prescricao-${campo.key}`}
                               {...atributosNumero(campo.key)}
                               // Guardar como texto enquanto edita: `Number("")`
                               // é 0, então apagar o campo para redigitar
@@ -467,15 +480,59 @@ export const ModalPrescreverExercicio: React.FC<
                         ))}
                       </div>
 
-                      {/* A grade tem seis caixas de ~50px; não cabe uma
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                        {CAMPOS_TEMPO.map((campo) => {
+                          const { rotulo, dica } = rotulos[campo.rotulo];
+                          return (
+                            <div
+                              key={campo.key}
+                              className="bg-slate-800 p-3 rounded-xl border border-slate-700"
+                            >
+                              <label
+                                htmlFor={`prescricao-${campo.key}`}
+                                className="block text-[10px] font-bold text-slate-300 uppercase mb-1.5"
+                              >
+                                {rotulo} (s)
+                              </label>
+                              <input
+                                id={`prescricao-${campo.key}`}
+                                {...atributosNumero(campo.key)}
+                                value={formPrescricao[campo.key]}
+                                onChange={(e) =>
+                                  setFormPrescricao({
+                                    ...formPrescricao,
+                                    [campo.key]: e.target
+                                      .value as unknown as number,
+                                  })
+                                }
+                                aria-invalid={!!erros[campo.key]}
+                                aria-describedby={`prescricao-${campo.key}-dica`}
+                                className={`w-full p-2 bg-slate-900 border rounded-lg outline-none text-center font-bold text-white text-sm ${
+                                  erros[campo.key]
+                                    ? "border-red-500"
+                                    : "border-slate-700 focus:border-emerald-500"
+                                }`}
+                              />
+                              <p
+                                id={`prescricao-${campo.key}-dica`}
+                                className="mt-1.5 text-[10px] leading-snug text-slate-400"
+                              >
+                                {dica}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* As caixas de contagem têm ~80px; não cabe uma
                           mensagem embaixo de cada uma. A caixa errada fica
                           com a borda vermelha e o motivo aparece aqui. */}
-                      {CAMPOS_NUMERICOS.some((c) => erros[c.key]) && (
+                      {CAMPOS_NUMERICOS.some((c) => erros[c]) && (
                         <p
                           role="alert"
                           className="mt-3 rounded-xl bg-red-500/10 p-2.5 text-[11px] font-bold text-red-300"
                         >
-                          {CAMPOS_NUMERICOS.map((c) => erros[c.key])
+                          {CAMPOS_NUMERICOS.map((c) => erros[c])
                             .filter(Boolean)
                             .join(" · ")}
                         </p>

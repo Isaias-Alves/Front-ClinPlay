@@ -28,6 +28,10 @@ export const JOGOS: JogoDefinicao[] = [
     resumo: "Leitura radial",
     descricao:
       "Uma esfera cresce enquanto a contração é sustentada e recolhe no relaxamento, mudando de cor a cada fase. A leitura radial é direta e funciona bem em contrações rápidas e repetidas (Fast Fibers).",
+    explicacaoTempos: {
+      principal: "A esfera cresce durante esse tempo.",
+      secundaria: "A esfera recolhe durante esse tempo.",
+    },
     icone: createElement(RiFocus3Line),
     corTexto: "text-amber-500",
     corFundo: "bg-amber-50",
@@ -44,6 +48,10 @@ export const JOGOS: JogoDefinicao[] = [
     // o motor visual ainda não foi escrito.
     descricao:
       "Motor ainda não desenvolvido. O identificador já existe no servidor, mas não há tela própria para ele — por isso não é possível prescrever um exercício com este motor.",
+    explicacaoTempos: {
+      principal: "Duração da primeira fase do movimento.",
+      secundaria: "Duração da segunda fase do movimento.",
+    },
     icone: createElement(RiRocketLine),
     corTexto: "text-indigo-500",
     corFundo: "bg-indigo-50",
@@ -60,6 +68,10 @@ export const JOGOS: JogoDefinicao[] = [
     resumo: "Leitura linear",
     descricao:
       "A bolinha percorre a pista até o alvo enquanto a contração é sustentada e volta à partida no relaxamento. A leitura linear mostra ao paciente quanto falta para completar cada repetição — útil em sustentações longas.",
+    explicacaoTempos: {
+      principal: "A bolinha avança até o alvo durante esse tempo.",
+      secundaria: "A bolinha volta ao ponto de partida durante esse tempo.",
+    },
     icone: createElement(TbBallTennis),
     corTexto: "text-emerald-500",
     corFundo: "bg-emerald-50",
@@ -99,4 +111,40 @@ export const obterJogo = (id: string | undefined): JogoDefinicao => {
 export const nomeDoJogo = (id: string | undefined): string => {
   if (!id) return "—";
   return POR_ID.get(id.toUpperCase())?.nome ?? id;
+};
+
+/** Rótulo e explicação de um campo de tempo do exercício. */
+export interface RotuloTempo {
+  rotulo: string;
+  dica: string;
+}
+
+/**
+ * Nomes dos três tempos do motor a partir das ações da prescrição.
+ *
+ * "Tempo principal" e "tempo secundário" não diziam nada ao fisioterapeuta.
+ * Com a ação no nome ("Tempo de Contrair", "Tempo de Soltar") o campo
+ * explica a si mesmo, e a dica diz o que o jogo desenha nesse intervalo. A
+ * dica vem do jogo que de fato roda (`obterJogo`), não do id prescrito.
+ */
+export const rotulosDosTempos = (
+  jogoId: string | undefined,
+  acaoPrincipal?: string | null,
+  acaoSecundaria?: string | null,
+): Record<"principal" | "secundario" | "descanso", RotuloTempo> => {
+  const { explicacaoTempos } = obterJogo(jogoId);
+  return {
+    principal: {
+      rotulo: `Tempo de ${acaoPrincipal?.trim() || "Contrair"}`,
+      dica: explicacaoTempos.principal,
+    },
+    secundario: {
+      rotulo: `Tempo de ${acaoSecundaria?.trim() || "Soltar"}`,
+      dica: explicacaoTempos.secundaria,
+    },
+    descanso: {
+      rotulo: "Descanso entre repetições",
+      dica: "Pausa depois de cada repetição, antes da próxima começar.",
+    },
+  };
 };

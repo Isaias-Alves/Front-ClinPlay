@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { motion } from "framer-motion";
 import {
   FiArrowLeft,
@@ -14,7 +14,7 @@ import {
 } from "react-icons/fi";
 import { clinicasServices } from "@services";
 import { useApp } from "@contexts";
-import { obterJogo } from "@games";
+import { obterJogo, rotulosDosTempos } from "@games";
 import {
   mensagemDeErro,
   validarNumero,
@@ -62,6 +62,7 @@ export function ExercicioFormPage() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<ExercicioFormData>({
     defaultValues: {
@@ -79,6 +80,16 @@ export function ExercicioFormPage() {
       },
     },
   });
+
+  const [acaoPrincipal, acaoSecundaria] = useWatch({
+    control,
+    name: ["configPadrao.acaoPrincipal", "configPadrao.acaoSecundaria"],
+  });
+  const rotulos = rotulosDosTempos(
+    jogoSelecionado,
+    acaoPrincipal,
+    acaoSecundaria,
+  );
 
   // Navegar durante a renderização dispara aviso do React e pode causar
   // atualização de estado durante o render do Router; vai para um efeito.
@@ -297,11 +308,8 @@ export function ExercicioFormPage() {
 
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-2">
                 <div>
-                  <label
-                    className="block text-[10px] font-bold text-slate-700 mb-1.5"
-                    title="Duração da ação principal em segundos"
-                  >
-                    TEMPO PRINCIPAL (s)
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
+                    {rotulos.principal.rotulo} (s)
                   </label>
                   <input
                     {...atributosNumero("tempoPrincipal")}
@@ -312,13 +320,13 @@ export function ExercicioFormPage() {
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
                   <Erro mensagem={errors.configPadrao?.tempoPrincipal?.message} />
+                  <span className="text-[10px] text-slate-400 mt-1 block leading-snug">
+                    {rotulos.principal.dica}
+                  </span>
                 </div>
                 <div>
-                  <label
-                    className="block text-[10px] font-bold text-slate-700 mb-1.5"
-                    title="Duração da ação secundária em segundos"
-                  >
-                    TEMPO SECUNDÁRIO (s)
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
+                    {rotulos.secundario.rotulo} (s)
                   </label>
                   <input
                     {...atributosNumero("tempoSecundario")}
@@ -329,13 +337,13 @@ export function ExercicioFormPage() {
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
                   <Erro mensagem={errors.configPadrao?.tempoSecundario?.message} />
+                  <span className="text-[10px] text-slate-400 mt-1 block leading-snug">
+                    {rotulos.secundario.dica}
+                  </span>
                 </div>
                 <div>
-                  <label
-                    className="block text-[10px] font-bold text-slate-700 mb-1.5"
-                    title="Pausa entre as repetições"
-                  >
-                    PAUSA/DESCANSO (s)
+                  <label className="block text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
+                    {rotulos.descanso.rotulo} (s)
                   </label>
                   <input
                     {...atributosNumero("tempoDescanso")}
@@ -346,6 +354,9 @@ export function ExercicioFormPage() {
                     className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
                   />
                   <Erro mensagem={errors.configPadrao?.tempoDescanso?.message} />
+                  <span className="text-[10px] text-slate-400 mt-1 block leading-snug">
+                    {rotulos.descanso.dica}
+                  </span>
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-700 mb-1.5">
