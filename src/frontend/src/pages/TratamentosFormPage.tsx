@@ -31,7 +31,7 @@ interface TratamentoFormData {
 
 export function TratamentosFormPage() {
   const navigate = useNavigate();
-  const { clinicaSelecionadaId, notificar, refreshData } = useApp();
+  const { clinicaSelecionadaId, notificar, refreshData, confirmar } = useApp();
 
   const [pacientes, setPacientes] = useState<PacienteVinculadoClinica[]>([]);
   const [carregandoPacientes, setCarregandoPacientes] = useState(true);
@@ -88,7 +88,6 @@ export function TratamentosFormPage() {
     }
     setIsSubmitting(true);
     try {
-      // O campo "fim" está a ser enviado aqui. Lembre o backend de adicionar no DTO!
       const payload = {
         clinPacienteId: data.clinPacienteId,
         descricao: data.descricao,
@@ -100,10 +99,27 @@ export function TratamentosFormPage() {
         },
       };
 
-      await tratamentoServices.criar(clinicaSelecionadaId, payload);
-      notificar("Tratamento iniciado com sucesso!", "sucesso");
+      const criado = await tratamentoServices.criar(
+        clinicaSelecionadaId,
+        payload,
+      );
       await refreshData();
-      navigate("/inicio-profissional");
+
+      // Todo tratamento nasce sem exercícios: eles só entram pela sala. Sem
+      // este aviso o fisioterapeuta voltava ao início achando que tinha
+      // terminado, e o paciente abria o app e não encontrava nada para fazer.
+      const adicionarAgora = await confirmar({
+        titulo: "Falta adicionar os exercícios",
+        mensagem:
+          "O tratamento foi criado, mas ainda não tem exercícios. O paciente só vê atividades depois que você adicionar pelo menos uma.",
+        rotuloConfirmar: "Adicionar agora",
+        rotuloCancelar: "Depois",
+      });
+      if (adicionarAgora)
+        navigate(`/tratamentos/sala/${criado.id}`, {
+          state: { tratamentoBase: criado },
+        });
+      else navigate("/inicio-profissional");
     } catch (error) {
       notificar(mensagemDeErro(error, "Erro ao criar tratamento."), "erro");
     } finally {
@@ -240,7 +256,7 @@ export function TratamentosFormPage() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-2 flex items-center gap-1.5">
-                      <FiCalendar /> PREVISÃO DE ALTA (OPCIONAL)
+                      <FiCalendar /> DATA LIMITE DE ACESSO DO TRATAMENTO
                     </label>
                     <input
                       type="date"
@@ -252,6 +268,10 @@ export function TratamentosFormPage() {
                       aria-invalid={!!errors.fim}
                       className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none text-sm text-slate-700 font-medium transition-colors"
                     />
+                    <span className="text-[10px] text-slate-400 mt-1.5 block">
+                      Opcional. Depois dessa data o paciente não consegue mais
+                      fazer os exercícios.
+                    </span>
                     {errors.fim && (
                       <span
                         role="alert"

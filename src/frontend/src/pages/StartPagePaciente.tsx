@@ -21,7 +21,11 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { FaFireAlt } from "react-icons/fa";
-import { criarContainerVariants, criarItemVariants } from "@utils";
+import {
+  criarContainerVariants,
+  criarItemVariants,
+  tratamentoEncerrado,
+} from "@utils";
 import { useStompClient } from "@hooks";
 import { VideoExercicio } from "@components";
 
@@ -260,10 +264,10 @@ export function StartPagePaciente() {
   }, [todosTratamentosBase, liveTratamentos]);
 
   const tratamentosAtivos = tratamentosProcessados.filter(
-    (t) => !t.fim && t.isActiveNow,
+    (t) => !tratamentoEncerrado(t) && t.isActiveNow,
   );
   const tratamentosPausados = tratamentosProcessados.filter(
-    (t) => !t.fim && !t.isActiveNow,
+    (t) => !tratamentoEncerrado(t) && !t.isActiveNow,
   );
 
   const handleLogout = () => {

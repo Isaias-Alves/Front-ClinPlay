@@ -130,3 +130,13 @@ export type TipoMensagemTratamento =
   | "REORDENAR_PRESCRICOES"
   | "MARCAR_FEEDBACK_VISTO"
   | "CRIAR_FEEDBACK";
+
+/** Espelha ObterRankingPaciente.java. */
+export interface RankingPaciente {
+  pacienteId: string;
+  nome: string;
+  avatar?: string | null;
+  execucoes: number;
+  /** LocalDateTime sem fuso, no horário do servidor. */
+  ultimaExecucao: string;
+}

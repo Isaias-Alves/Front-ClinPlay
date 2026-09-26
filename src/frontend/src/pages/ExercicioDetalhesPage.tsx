@@ -20,7 +20,7 @@ import {
   validarNumero,
   atributosNumero,
 } from "@utils";
-import { nomeDoJogo } from "@games";
+import { nomeDoJogo, rotulosDosTempos } from "@games";
 
 interface ExercicioFormData {
   nome: string;
@@ -30,8 +30,8 @@ interface ExercicioFormData {
   configPadrao: {
     vezes: number;
     repeticoes: number;
-    tempoAcao: number;
-    tempoSub: number;
+    tempoPrincipal: number;
+    tempoSecundario: number;
     tempoDescanso: number;
     tempoIntervalo: number;
   };
@@ -79,8 +79,8 @@ export function ExercicioDetalhesPage() {
       configPadrao: {
         vezes: exercicioDaMemoria.configPadrao?.vezes || 0,
         repeticoes: exercicioDaMemoria.configPadrao?.repeticoes || 0,
-        tempoAcao: exercicioDaMemoria.configPadrao?.tempoAcao || 0,
-        tempoSub: exercicioDaMemoria.configPadrao?.tempoSub || 0,
+        tempoPrincipal: exercicioDaMemoria.configPadrao?.tempoPrincipal || 0,
+        tempoSecundario: exercicioDaMemoria.configPadrao?.tempoSecundario || 0,
         tempoDescanso: exercicioDaMemoria.configPadrao?.tempoDescanso || 0,
         tempoIntervalo: exercicioDaMemoria.configPadrao?.tempoIntervalo || 0,
       },
@@ -98,6 +98,11 @@ export function ExercicioDetalhesPage() {
   };
 
   const currentFormValues = watch();
+  const rotulos = rotulosDosTempos(
+    currentFormValues.jogo,
+    exercicioDaMemoria?.configPadrao?.acaoPrincipal,
+    exercicioDaMemoria?.configPadrao?.acaoSecundaria,
+  );
   const videoId = extrairIdYoutube(currentFormValues.videoUrl);
 
   // Se estiver sem dados na memória (antes do useEffect redirecionar), não renderiza nada para não quebrar
@@ -192,17 +197,17 @@ export function ExercicioDetalhesPage() {
                           unit: "reps",
                         },
                         {
-                          label: "Tempo de Ação",
-                          val: currentFormValues.configPadrao?.tempoAcao,
+                          label: rotulos.principal.rotulo,
+                          val: currentFormValues.configPadrao?.tempoPrincipal,
                           unit: "s",
                         },
                         {
-                          label: "Tempo Sub",
-                          val: currentFormValues.configPadrao?.tempoSub,
+                          label: rotulos.secundario.rotulo,
+                          val: currentFormValues.configPadrao?.tempoSecundario,
                           unit: "s",
                         },
                         {
-                          label: "Descanso",
+                          label: rotulos.descanso.rotulo,
                           val: currentFormValues.configPadrao?.tempoDescanso,
                           unit: "s",
                         },
@@ -360,35 +365,35 @@ export function ExercicioDetalhesPage() {
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                          T. de Ação (s)
+                          {rotulos.principal.rotulo} (s)
                         </label>
                         <input
                           {...atributosNumero("tempoPrincipal")}
-                          {...register("configPadrao.tempoAcao", {
+                          {...register("configPadrao.tempoPrincipal", {
                             validate: (v) => validarNumero(v, "tempoPrincipal"),
                           })}
-                          aria-invalid={!!errors.configPadrao?.tempoAcao}
+                          aria-invalid={!!errors.configPadrao?.tempoPrincipal}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
-                        <Erro mensagem={errors.configPadrao?.tempoAcao?.message} />
+                        <Erro mensagem={errors.configPadrao?.tempoPrincipal?.message} />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                          T. Sub (s)
+                          {rotulos.secundario.rotulo} (s)
                         </label>
                         <input
                           {...atributosNumero("tempoSecundario")}
-                          {...register("configPadrao.tempoSub", {
+                          {...register("configPadrao.tempoSecundario", {
                             validate: (v) => validarNumero(v, "tempoSecundario"),
                           })}
-                          aria-invalid={!!errors.configPadrao?.tempoSub}
+                          aria-invalid={!!errors.configPadrao?.tempoSecundario}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
-                        <Erro mensagem={errors.configPadrao?.tempoSub?.message} />
+                        <Erro mensagem={errors.configPadrao?.tempoSecundario?.message} />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                          Descanso (s)
+                          {rotulos.descanso.rotulo} (s)
                         </label>
                         <input
                           {...atributosNumero("tempoDescanso")}

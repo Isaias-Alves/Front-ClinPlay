@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
-import { Header, BuscarClinicaModal } from "@components";
+import { Header, BuscarClinicaModal, RankingPacientes } from "@components";
 import { useApp } from "@contexts";
 import type {
   ChavePermissao,
@@ -37,10 +37,16 @@ import {
   FiPhone,
   FiSave,
   FiSearch,
+  FiAward,
 } from "react-icons/fi";
 import { useStompClient } from "@hooks";
 import type { IconType } from "react-icons";
-import { formatarCPF, formatarTelefone, mensagemDeErro } from "@utils";
+import {
+  formatarCPF,
+  formatarTelefone,
+  mensagemDeErro,
+  tratamentoEncerrado,
+} from "@utils";
 import { nomeDoJogo } from "@games";
 
 /** Item da grade de permissões de um profissional. */
@@ -80,7 +86,12 @@ const swipeVariants = {
   }),
 };
 
-type AbaId = "tratamentos" | "exercicios" | "pacientes" | "equipe";
+type AbaId =
+  | "tratamentos"
+  | "engajamento"
+  | "exercicios"
+  | "pacientes"
+  | "equipe";
 
 export function StartPageProfissional() {
   const navigate = useNavigate();
@@ -178,6 +189,7 @@ export function StartPageProfissional() {
 
   const abas = [
     { id: "tratamentos" as AbaId, label: "Tratamentos", icon: FiUsers },
+    { id: "engajamento" as AbaId, label: "Engajamento", icon: FiAward },
     { id: "exercicios" as AbaId, label: "Exercícios", icon: FiActivity },
     ...(isGestorPacientes
       ? [{ id: "pacientes" as AbaId, label: "Pacientes", icon: FiUser }]
@@ -523,7 +535,7 @@ export function StartPageProfissional() {
   const pacientesFiltrados = pacientesClinica
     .filter((pac) => {
       const isEmTratamento = meusTratamentos.some(
-        (t) => t.pacienteId === pac.pacienteId && !t.fim,
+        (t) => t.pacienteId === pac.pacienteId && !tratamentoEncerrado(t),
       );
       if (filtroTratamento === "sim") return isEmTratamento;
       if (filtroTratamento === "nao") return !isEmTratamento;
@@ -712,6 +724,11 @@ export function StartPageProfissional() {
                   onDragEnd={handleDragEnd}
                   className="space-y-4 touch-pan-y"
                 >
+                  {/* ── ABA: ENGAJAMENTO ── */}
+                  {abaAtiva === "engajamento" && clinicaSelecionadaId && (
+                    <RankingPacientes clinicaId={clinicaSelecionadaId} />
+                  )}
+
                   {/* ── ABA: TRATAMENTOS ── */}
                   {abaAtiva === "tratamentos" && (
                     <section className="space-y-4">

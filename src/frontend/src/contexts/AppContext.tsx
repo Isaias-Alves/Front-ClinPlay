@@ -1,5 +1,6 @@
 import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { isAxiosError } from "axios";
 import {
   authServices,
   clinicaStorage,
@@ -11,6 +12,7 @@ import {
 // componentes importam `useApp` de volta, e o ciclo entre os dois barrels
 // gerava avisos de ordem de execução no bundle final.
 import LogotipoClinPlay from "../components/LogotipoClinPlay";
+import { FalhaAoCarregar } from "../components/FalhaAoCarregar";
 import { NotificacaoModal } from "../components/NotificacaoModal";
 import {
   ConfirmacaoModal,
@@ -35,11 +37,17 @@ const ROTAS_PUBLICAS = [
 
 const ehRotaPublica = (pathname: string) => ROTAS_PUBLICAS.includes(pathname);
 
+/** Erro sem resposta (rede) ou 5xx: não prova que o perfil não existe. */
+const ehFalhaDeRede = (erro: unknown): boolean =>
+  !isAxiosError(erro) || !erro.response || erro.response.status >= 500;
+
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
+  /** A carga da conta falhou por rede; a sessão continua guardada. */
+  const [falhaGlobal, setFalhaGlobal] = useState(false);
   const [tipoUsuario, setTipoUsuario] = useState<TipoUsuario | null>(null);
   const [clinicas, setClinicas] = useState<ClinicaVinculo[]>([]);
   const [clinicaSelecionadaId, setClinicaSelecionadaId] = useState<string>("");
@@ -127,12 +135,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       dadosUsuario = await authServices.getPacienteInfo();
       tipo = "paciente";
-    } catch {
+    } catch (erroPaciente) {
       try {
         dadosUsuario = await authServices.getProfissionalInfo();
         tipo = "profissional";
-      } catch {
+      } catch (erroProfissional) {
         setIsLoadingGlobal(false);
+        // Rede fora ou API acordando não dizem nada sobre o perfil. Apagar a
+        // sessão nesses casos deslogava quem só abriu o app sem internet.
+        if (ehFalhaDeRede(erroPaciente) || ehFalhaDeRede(erroProfissional)) {
+          setFalhaGlobal(true);
+          return;
+        }
         notificar(
           "Perfil não encontrado. Por favor, conclua o seu cadastro.",
           "erro",
@@ -219,6 +233,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
    */
   const carregandoGlobal = isLoadingGlobal && !ehRotaPublica(location.pathname);
 
+  const tentarDeNovo = () => {
+    setFalhaGlobal(false);
+    setIsLoadingGlobal(true);
+    carregarDadosGlobais();
+  };
+
   const handleSetClinicaSelecionadaId = useCallback((id: string) => {
     setClinicaSelecionadaId(id);
     clinicaStorage.salvar(id);
@@ -243,6 +263,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       navigate("/", { replace: true });
     }
   }, [navigate]);
+
+  if (falhaGlobal && !ehRotaPublica(location.pathname)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-dvh bg-slate-50 p-6 gap-6">
+        <LogotipoClinPlay mt="mt-0" mb="mb-0" />
+        <FalhaAoCarregar oQue="a sua conta" onTentarNovamente={tentarDeNovo} />
+      </div>
+    );
+  }
 
   if (carregandoGlobal) {
     return (
@@ -276,8 +305,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     >
       <ConfirmacaoModal
         isOpen={Boolean(confirmacao)}
+        titulo={confirmacao?.titulo}
         mensagem={confirmacao?.mensagem ?? ""}
         rotuloConfirmar={confirmacao?.rotuloConfirmar}
+        rotuloCancelar={confirmacao?.rotuloCancelar}
         destrutivo={confirmacao?.destrutivo}
         onConfirmar={() => responderConfirmacao(true)}
         onCancelar={() => responderConfirmacao(false)}

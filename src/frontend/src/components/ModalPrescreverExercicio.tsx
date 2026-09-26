@@ -7,6 +7,7 @@ import {
   FiActivity,
   FiSliders,
   FiSave,
+  FiEdit2,
 } from "react-icons/fi";
 import {
   formatarHorasParaHHMM,
@@ -15,9 +16,13 @@ import {
   atributosNumero,
   validarHHMM,
 } from "@utils";
-import type { ExercicioConfig, ExercicioInfoResponse } from "@interfaces";
+import type {
+  ExercicioConfig,
+  ExercicioInfoResponse,
+  PrescricaoView,
+} from "@interfaces";
 import { PatternFormat } from "react-number-format"; // IMPORT ADICIONADO AQUI!
-import { nomeDoJogo } from "@games";
+import { nomeDoJogo, rotulosDosTempos } from "@games";
 
 /** Corpo de `ADICIONAR_PRESCRICAO` enviado pela sala de tratamento. */
 export interface PrescricaoPayload {
@@ -49,19 +54,49 @@ type CampoNumerico = Extract<
   | "tempoDescanso"
 >;
 
-/** Grade de ajustes finos do motor, na ordem em que aparece na tela. */
-const CAMPOS_NUMERICOS: Array<{
-  label: string;
-  key: CampoNumerico;
-  step?: string;
-}> = [
+/** Contagens do motor, na ordem em que aparecem na tela. */
+const CAMPOS_CONTAGEM: Array<{ label: string; key: CampoNumerico }> = [
   { label: "Sessões/Dia", key: "vezesAoDia" },
   { label: "Séries", key: "series" },
   { label: "Reps", key: "repeticoes" },
-  { label: "T. Princ (s)", key: "tempoPrincipal", step: "0.1" },
-  { label: "T. Sec (s)", key: "tempoSecundario", step: "0.1" },
-  { label: "Pausa (s)", key: "tempoDescanso", step: "0.1" },
 ];
+
+/** Tempos do motor; os rótulos saem de `rotulosDosTempos`. */
+const CAMPOS_TEMPO = [
+  { key: "tempoPrincipal", rotulo: "principal" },
+  { key: "tempoSecundario", rotulo: "secundario" },
+  { key: "tempoDescanso", rotulo: "descanso" },
+] as const;
+
+const CAMPOS_NUMERICOS: CampoNumerico[] = [
+  ...CAMPOS_CONTAGEM.map((c) => c.key),
+  ...CAMPOS_TEMPO.map((c) => c.key),
+];
+
+/** O que o modal precisa saber do exercício escolhido (ou já prescrito). */
+type ExercicioSelecionado = Pick<ExercicioInfoResponse, "id" | "nome" | "jogo">;
+
+/**
+ * Formulário preenchido a partir de uma configuração: o `configPadrao` do
+ * exercício, ao prescrever, ou a `customizacao` da prescrição, ao editar.
+ */
+const formularioDe = (
+  config: Partial<ExercicioConfig> | null | undefined,
+  textos: { objetivo?: string | null; observacao?: string | null } = {},
+): FormPrescricao => ({
+  objetivo: textos.objetivo ?? "",
+  observacao: textos.observacao ?? "Siga as instruções do exercício.",
+  acaoPrincipal: config?.acaoPrincipal || "Contração",
+  acaoSecundaria: config?.acaoSecundaria || "Relaxamento",
+  vezesAoDia: config?.vezesAoDia ?? 1,
+  series: config?.series ?? 3,
+  repeticoes: config?.repeticoes ?? 10,
+  diasInativo: config?.diasInativo ?? 0,
+  tempoInativo: formatarHorasParaHHMM(config?.tempoInativo ?? 0),
+  tempoPrincipal: config?.tempoPrincipal ?? 3,
+  tempoSecundario: config?.tempoSecundario ?? 3,
+  tempoDescanso: config?.tempoDescanso ?? 6,
+});
 
 /** Mensagem de erro de um campo do modal. */
 const Erro = ({ mensagem }: { mensagem?: string }) =>
@@ -77,29 +112,36 @@ interface ModalPrescreverExercicioProps {
   exercicios: ExercicioInfoResponse[];
   carregando: boolean;
   onConfirm: (payload: PrescricaoPayload) => void;
+  /** Quando presente, o modal abre direto nos parâmetros desta prescrição. */
+  prescricaoEmEdicao?: PrescricaoView | null;
 }
 
 export const ModalPrescreverExercicio: React.FC<
   ModalPrescreverExercicioProps
-> = ({ isOpen, onClose, exercicios, carregando, onConfirm }) => {
+> = ({
+  isOpen,
+  onClose,
+  exercicios,
+  carregando,
+  onConfirm,
+  prescricaoEmEdicao,
+}) => {
+  const editando = Boolean(prescricaoEmEdicao);
   const [buscaExercicio, setBuscaExercicio] = useState("");
   const [exercicioParaPrescrever, setExercicioParaPrescrever] =
-    useState<ExercicioInfoResponse | null>(null);
+    useState<ExercicioSelecionado | null>(null);
 
-  const [formPrescricao, setFormPrescricao] = useState<FormPrescricao>({
-    objetivo: "",
-    observacao: "Siga as instruções do exercício.",
-    acaoPrincipal: "",
-    acaoSecundaria: "",
-    vezesAoDia: 1,
-    series: 3,
-    repeticoes: 10,
-    diasInativo: 0,
-    tempoInativo: "00:00",
-    tempoPrincipal: 3,
-    tempoSecundario: 3,
-    tempoDescanso: 6,
-  });
+  const [formPrescricao, setFormPrescricao] = useState<FormPrescricao>(() =>
+    formularioDe(null),
+  );
+
+  /**
+   * Erros por campo. Este modal não usa `react-hook-form`, e antes não
+   * validava nada: dava para zerar séries e repetições, ou deixar o objetivo
+   * em branco, e o `onConfirm` disparava do mesmo jeito. Quem recebia os
+   * parâmetros quebrados era o paciente, na hora de executar.
+   */
+  const [erros, setErros] = useState<Partial<Record<string, string>>>({});
 
   // Limpa o estado interno sempre que o modal fechar. Feito durante a
   // renderização (padrão "ajustar estado ao mudar de prop") e não num
@@ -111,8 +153,25 @@ export const ModalPrescreverExercicio: React.FC<
     if (!isOpen) {
       setBuscaExercicio("");
       setExercicioParaPrescrever(null);
+    } else if (prescricaoEmEdicao) {
+      setErros({});
+      setExercicioParaPrescrever({
+        id: prescricaoEmEdicao.exercicioId,
+        nome: prescricaoEmEdicao.exercicioNome,
+        jogo: prescricaoEmEdicao.exercicioJogo,
+      });
+      setFormPrescricao(
+        formularioDe(prescricaoEmEdicao.customizacao, prescricaoEmEdicao),
+      );
     }
   }
+
+  // Recalculado a cada tecla: os rótulos seguem a ação digitada acima.
+  const rotulos = rotulosDosTempos(
+    exercicioParaPrescrever?.jogo,
+    formPrescricao.acaoPrincipal,
+    formPrescricao.acaoSecundaria,
+  );
 
   const exerciciosFiltrados = exercicios.filter(
     (ex) =>
@@ -123,29 +182,8 @@ export const ModalPrescreverExercicio: React.FC<
   const handlePrepararPrescricao = (ex: ExercicioInfoResponse) => {
     setExercicioParaPrescrever(ex);
     setErros({});
-    setFormPrescricao({
-      objetivo: "",
-      observacao: "Siga as instruções do exercício.",
-      acaoPrincipal: ex.configPadrao?.acaoPrincipal || "Contração",
-      acaoSecundaria: ex.configPadrao?.acaoSecundaria || "Relaxamento",
-      vezesAoDia: ex.configPadrao?.vezesAoDia ?? 1,
-      series: ex.configPadrao?.series ?? 3,
-      repeticoes: ex.configPadrao?.repeticoes ?? 10,
-      diasInativo: ex.configPadrao?.diasInativo ?? 0,
-      tempoInativo: formatarHorasParaHHMM(ex.configPadrao?.tempoInativo ?? 0),
-      tempoPrincipal: ex.configPadrao?.tempoPrincipal ?? 3,
-      tempoSecundario: ex.configPadrao?.tempoSecundario ?? 3,
-      tempoDescanso: ex.configPadrao?.tempoDescanso ?? 6,
-    });
+    setFormPrescricao(formularioDe(ex.configPadrao));
   };
-
-  /**
-   * Erros por campo. Este modal não usa `react-hook-form`, e antes não
-   * validava nada: dava para zerar séries e repetições, ou deixar o objetivo
-   * em branco, e o `onConfirm` disparava do mesmo jeito. Quem recebia os
-   * parâmetros quebrados era o paciente, na hora de executar.
-   */
-  const [erros, setErros] = useState<Partial<Record<string, string>>>({});
 
   const validar = (): boolean => {
     const achados: Record<string, string> = {};
@@ -157,10 +195,7 @@ export const ModalPrescreverExercicio: React.FC<
     if (!formPrescricao.acaoSecundaria.trim())
       achados.acaoSecundaria = "Obrigatório";
 
-    for (const campo of [
-      ...CAMPOS_NUMERICOS.map((c) => c.key),
-      "diasInativo" as const,
-    ]) {
+    for (const campo of [...CAMPOS_NUMERICOS, "diasInativo" as const]) {
       const resultado = validarNumero(formPrescricao[campo], campo);
       if (resultado !== true) achados[campo] = resultado;
     }
@@ -180,7 +215,7 @@ export const ModalPrescreverExercicio: React.FC<
       exercicioId: exercicioParaPrescrever.id,
       objetivo: formPrescricao.objetivo,
       observacao: formPrescricao.observacao,
-      disponivel: true,
+      disponivel: prescricaoEmEdicao?.disponivel ?? true,
       customizacao: {
         acaoPrincipal: formPrescricao.acaoPrincipal,
         acaoSecundaria: formPrescricao.acaoSecundaria,
@@ -216,18 +251,22 @@ export const ModalPrescreverExercicio: React.FC<
             <div className="p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl shadow-md">
-                  <FiPlus />
+                  {editando ? <FiEdit2 /> : <FiPlus />}
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-slate-800">
-                    {exercicioParaPrescrever
-                      ? "Parâmetros Mecânicos"
-                      : "Acervo de Exercícios"}
+                    {editando
+                      ? "Editar prescrição"
+                      : exercicioParaPrescrever
+                        ? "Parâmetros Mecânicos"
+                        : "Acervo de Exercícios"}
                   </h3>
                   <p className="text-[11px] font-medium text-slate-400 uppercase tracking-widest mt-0.5">
-                    {exercicioParaPrescrever
-                      ? "Ajuste os limites do jogo."
-                      : "Selecione a atividade para anexar."}
+                    {editando
+                      ? "As mudanças valem a partir da próxima sessão do paciente."
+                      : exercicioParaPrescrever
+                        ? "Ajuste os limites do jogo."
+                        : "Selecione a atividade para anexar."}
                   </p>
                 </div>
               </div>
@@ -313,12 +352,14 @@ export const ModalPrescreverExercicio: React.FC<
                           </p>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setExercicioParaPrescrever(null)}
-                        className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-sm"
-                      >
-                        Trocar
-                      </button>
+                      {!editando && (
+                        <button
+                          onClick={() => setExercicioParaPrescrever(null)}
+                          className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors bg-white border border-slate-200 px-3 py-2 rounded-xl shadow-sm"
+                        >
+                          Trocar
+                        </button>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -401,16 +442,20 @@ export const ModalPrescreverExercicio: React.FC<
                       <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2 mb-4 border-b border-slate-700 pb-3">
                         <FiSliders /> Parâmetros do Motor
                       </h4>
-                      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-                        {CAMPOS_NUMERICOS.map((campo) => (
+                      <div className="grid grid-cols-3 gap-3">
+                        {CAMPOS_CONTAGEM.map((campo) => (
                           <div
                             key={campo.key}
                             className="bg-slate-800 p-2 rounded-xl border border-slate-700"
                           >
-                            <label className="block text-[9px] font-bold text-slate-400 uppercase text-center mb-1">
+                            <label
+                              htmlFor={`prescricao-${campo.key}`}
+                              className="block text-[9px] font-bold text-slate-400 uppercase text-center mb-1"
+                            >
                               {campo.label}
                             </label>
                             <input
+                              id={`prescricao-${campo.key}`}
                               {...atributosNumero(campo.key)}
                               // Guardar como texto enquanto edita: `Number("")`
                               // é 0, então apagar o campo para redigitar
@@ -435,15 +480,59 @@ export const ModalPrescreverExercicio: React.FC<
                         ))}
                       </div>
 
-                      {/* A grade tem seis caixas de ~50px; não cabe uma
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                        {CAMPOS_TEMPO.map((campo) => {
+                          const { rotulo, dica } = rotulos[campo.rotulo];
+                          return (
+                            <div
+                              key={campo.key}
+                              className="bg-slate-800 p-3 rounded-xl border border-slate-700"
+                            >
+                              <label
+                                htmlFor={`prescricao-${campo.key}`}
+                                className="block text-[10px] font-bold text-slate-300 uppercase mb-1.5"
+                              >
+                                {rotulo} (s)
+                              </label>
+                              <input
+                                id={`prescricao-${campo.key}`}
+                                {...atributosNumero(campo.key)}
+                                value={formPrescricao[campo.key]}
+                                onChange={(e) =>
+                                  setFormPrescricao({
+                                    ...formPrescricao,
+                                    [campo.key]: e.target
+                                      .value as unknown as number,
+                                  })
+                                }
+                                aria-invalid={!!erros[campo.key]}
+                                aria-describedby={`prescricao-${campo.key}-dica`}
+                                className={`w-full p-2 bg-slate-900 border rounded-lg outline-none text-center font-bold text-white text-sm ${
+                                  erros[campo.key]
+                                    ? "border-red-500"
+                                    : "border-slate-700 focus:border-emerald-500"
+                                }`}
+                              />
+                              <p
+                                id={`prescricao-${campo.key}-dica`}
+                                className="mt-1.5 text-[10px] leading-snug text-slate-400"
+                              >
+                                {dica}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* As caixas de contagem têm ~80px; não cabe uma
                           mensagem embaixo de cada uma. A caixa errada fica
                           com a borda vermelha e o motivo aparece aqui. */}
-                      {CAMPOS_NUMERICOS.some((c) => erros[c.key]) && (
+                      {CAMPOS_NUMERICOS.some((c) => erros[c]) && (
                         <p
                           role="alert"
                           className="mt-3 rounded-xl bg-red-500/10 p-2.5 text-[11px] font-bold text-red-300"
                         >
-                          {CAMPOS_NUMERICOS.map((c) => erros[c.key])
+                          {CAMPOS_NUMERICOS.map((c) => erros[c])
                             .filter(Boolean)
                             .join(" · ")}
                         </p>
@@ -507,7 +596,11 @@ export const ModalPrescreverExercicio: React.FC<
 
                     <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4">
                       <button
-                        onClick={() => setExercicioParaPrescrever(null)}
+                        onClick={
+                          editando
+                            ? onClose
+                            : () => setExercicioParaPrescrever(null)
+                        }
                         className="w-full sm:flex-1 py-4 px-4 bg-white border border-slate-200 text-slate-600 font-bold rounded-2xl transition-all active:scale-95"
                       >
                         Cancelar
@@ -516,8 +609,8 @@ export const ModalPrescreverExercicio: React.FC<
                         onClick={handleConfirmar}
                         className="w-full sm:flex-2 py-4 px-6 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-3 active:scale-95"
                       >
-                        <FiSave className="text-xl shrink-0" /> Confirmar
-                        Prescrição
+                        <FiSave className="text-xl shrink-0" />
+                        {editando ? "Salvar alterações" : "Confirmar Prescrição"}
                       </button>
                     </div>
                   </motion.div>

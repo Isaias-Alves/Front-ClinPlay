@@ -1,6 +1,7 @@
 import api from "./http";
 import {
   CadastroTratamentoRequestApi,
+  RankingPaciente,
   TratamentoResponseApi,
 } from "@interfaces";
 
@@ -8,7 +9,8 @@ import {
  * Tratamentos.
  *
  * ATENÇÃO: o `TratamentoController` do backend expõe apenas
- * `POST /tratamento/{clinicaId}` e `PUT /tratamento/{id}/finalizar`. Toda a
+ * `POST /tratamento/{clinicaId}`, `PUT /tratamento/{id}/finalizar` e
+ * `GET /tratamento/ranking/{clinicaId}`. Toda a
  * leitura e edição acontece pelo WebSocket, em `/app/tratamento/{id}`
  * (ver `useTratamentoSocket` e o enum `TipoMensagem`):
  *
@@ -32,6 +34,20 @@ export const tratamentoServices = {
     dados: CadastroTratamentoRequestApi,
   ): Promise<TratamentoResponseApi> => {
     const { data } = await api.post(`/tratamento/${clinicaId}`, dados);
+    return data;
+  },
+
+  /**
+   * GET /tratamento/ranking/{clinicaId} — pacientes do profissional logado
+   * com mais exercícios concluídos. Sem `dias`, conta desde sempre.
+   */
+  ranking: async (
+    clinicaId: string,
+    dias?: number,
+  ): Promise<RankingPaciente[]> => {
+    const { data } = await api.get(`/tratamento/ranking/${clinicaId}`, {
+      params: dias ? { dias } : undefined,
+    });
     return data;
   },
 

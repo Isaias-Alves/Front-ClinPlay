@@ -18,9 +18,15 @@ import {
   FiStar,
   FiPower,
   FiCheck,
+  FiEdit2,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
-import { mensagemDeErro, validarPeriodo } from "@utils";
+import {
+  formatarDataISO,
+  mensagemDeErro,
+  tratamentoEncerrado,
+  validarPeriodo,
+} from "@utils";
 import type {
   ErroSocket,
   EventoTratamento,
@@ -69,6 +75,20 @@ function salaReducer(estado: EstadoSala, evento: EventoTratamento): EstadoSala {
                 ...prescricoesDe(estado.tratamento),
                 evento.prescricao,
               ].sort((a, b) => a.ordem - b.ordem),
+            }
+          : null,
+      };
+    case "PRESCRICAO_EDITADA":
+      return {
+        ...estado,
+        tratamento: estado.tratamento
+          ? {
+              ...estado.tratamento,
+              prescricoes: prescricoesDe(estado.tratamento).map((p) =>
+                p.id === evento.prescricao.id
+                  ? { ...p, ...evento.prescricao }
+                  : p,
+              ),
             }
           : null,
       };
@@ -160,6 +180,8 @@ export function TratamentoSalaPage() {
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [prescricaoEmEdicao, setPrescricaoEmEdicao] =
+    useState<PrescricaoView | null>(null);
   const [exerciciosClinica, setExerciciosClinica] = useState<
     ExercicioInfoResponse[]
   >([]);
@@ -179,6 +201,8 @@ export function TratamentoSalaPage() {
       dispatch(evento);
       if (evento.evento === "PRESCRICAO_ADICIONADA")
         notificar("Exercício anexado com sucesso!", "sucesso");
+      else if (evento.evento === "PRESCRICAO_EDITADA")
+        notificar("Prescrição atualizada.", "sucesso");
       else if (evento.evento === "PRESCRICAO_REMOVIDA")
         notificar("Prescrição removida do tratamento.", "sucesso");
       else if (evento.evento === "TRATAMENTO_EDITADO")
@@ -196,7 +220,7 @@ export function TratamentoSalaPage() {
     if (
       !(await confirmar({
         mensagem:
-          "Tem certeza que deseja finalizar este tratamento? O paciente não poderá mais realizar exercícios vinculados a este protocolo.",
+          "Finalizar este tratamento? O paciente pode fazer os exercícios até o fim de hoje; depois disso, o acesso é encerrado.",
         rotuloConfirmar: "Finalizar",
         destrutivo: true,
       }))
@@ -257,12 +281,32 @@ export function TratamentoSalaPage() {
     }
   };
 
-  const handleConfirmarPrescricao = (payload: PrescricaoPayload) => {
-    enviar({
-      tipo: "ADICIONAR_PRESCRICAO",
-      ...payload,
-    });
+  const fecharModalPrescricao = () => {
     setIsModalOpen(false);
+    setPrescricaoEmEdicao(null);
+  };
+
+  const abrirEdicaoPrescricao = (prescricao: PrescricaoView) => {
+    setPrescricaoEmEdicao(prescricao);
+    setIsModalOpen(true);
+  };
+
+  const handleConfirmarPrescricao = (payload: PrescricaoPayload) => {
+    if (prescricaoEmEdicao) {
+      // O exercício de uma prescrição não muda; para trocar, remove e adiciona.
+      const { exercicioId: _exercicioId, ...alteracoes } = payload;
+      enviar({
+        tipo: "EDITAR_PRESCRICAO",
+        prescricaoId: prescricaoEmEdicao.id,
+        ...alteracoes,
+      });
+    } else {
+      enviar({
+        tipo: "ADICIONAR_PRESCRICAO",
+        ...payload,
+      });
+    }
+    fecharModalPrescricao();
   };
 
   const handleRemoverPrescricao = async (prescricaoId: string) => {
@@ -290,7 +334,7 @@ export function TratamentoSalaPage() {
   const handleSalvarConfig = () => {
     /**
      * Este modal não validava nada e fechava sempre. Dava para apagar o
-     * objetivo do tratamento e marcar a alta para antes do início — o
+     * objetivo do tratamento e marcar a data limite antes do início — o
      * período virava negativo e a barra de progresso do paciente saía
      * quebrada, sem nenhum aviso de que algo tinha dado errado.
      */
@@ -402,7 +446,7 @@ export function TratamentoSalaPage() {
       </div>
 
       <main className="max-w-5xl mx-auto px-4 mt-10 space-y-8 relative z-10">
-        {/* Banner de Alta / Fim */}
+        {/* Banner da data limite de acesso */}
         <AnimatePresence>
           {t?.fim && (
             <motion.div
@@ -415,14 +459,14 @@ export function TratamentoSalaPage() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-800">
-                  Tratamento Programado para Alta
+                  {tratamentoEncerrado(t)
+                    ? `Acesso encerrado em ${formatarDataISO(t.fim)}`
+                    : `Acesso liberado até ${formatarDataISO(t.fim)}`}
                 </h3>
                 <p className="text-xs text-slate-600 font-medium mt-0.5">
-                  Os exercícios serão bloqueados após o dia{" "}
-                  <span className="font-bold text-slate-800">
-                    {new Date(t.fim).toLocaleDateString("pt-BR")}
-                  </span>
-                  .
+                  {tratamentoEncerrado(t)
+                    ? "O paciente não consegue mais fazer os exercícios deste tratamento."
+                    : "Depois dessa data o paciente não consegue mais fazer os exercícios."}
                 </p>
               </div>
             </motion.div>
@@ -500,13 +544,24 @@ export function TratamentoSalaPage() {
                         <div className="w-12 h-12 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center text-xl shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
                           <FiActivity />
                         </div>
-                        <button
-                          onClick={() => handleRemoverPrescricao(p.id)}
-                          className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                          title="Remover Prescrição"
-                        >
-                          <FiX className="text-lg" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => abrirEdicaoPrescricao(p)}
+                            className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
+                            title="Editar prescrição"
+                            aria-label={`Editar prescrição de ${p.exercicioNome}`}
+                          >
+                            <FiEdit2 className="text-lg" />
+                          </button>
+                          <button
+                            onClick={() => handleRemoverPrescricao(p.id)}
+                            className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                            title="Remover Prescrição"
+                            aria-label={`Remover prescrição de ${p.exercicioNome}`}
+                          >
+                            <FiX className="text-lg" />
+                          </button>
+                        </div>
                       </div>
 
                       <h3 className="font-extrabold text-slate-800 text-lg leading-tight group-hover:text-emerald-700 transition-colors">
@@ -613,7 +668,7 @@ export function TratamentoSalaPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                    <FiCalendar /> Data de Previsão de Alta
+                    <FiCalendar /> Data limite de acesso do tratamento
                   </label>
                   <input
                     type="date"
@@ -697,10 +752,11 @@ export function TratamentoSalaPage() {
       {/* MODAL 2 FOI EXTRAÍDO PARA AQUI! */}
       <ModalPrescreverExercicio
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={fecharModalPrescricao}
         exercicios={exerciciosClinica}
         carregando={carregandoExercicios}
         onConfirm={handleConfirmarPrescricao}
+        prescricaoEmEdicao={prescricaoEmEdicao}
       />
 
       {/* MODAL 3: FEEDBACKS DO PACIENTE */}

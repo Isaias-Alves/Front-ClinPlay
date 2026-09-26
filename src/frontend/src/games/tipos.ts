@@ -50,6 +50,11 @@ export interface JogoDefinicao {
   /** Duas ou três palavras para a etiqueta sobre a prévia. */
   resumo: string;
   descricao: string;
+  /**
+   * O que o desenho faz durante o tempo de cada ação. Aparece embaixo dos
+   * campos de tempo, para o fisioterapeuta saber o que está ajustando.
+   */
+  explicacaoTempos: { principal: string; secundaria: string };
   icone: ReactNode;
   corTexto: string;
   corFundo: string;
