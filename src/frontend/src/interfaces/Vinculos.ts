@@ -64,6 +64,11 @@ export interface ClinicaVinculo {
 
   /** Presente só para o profissional. */
   permissoes?: PermissoesClinica;
+  /**
+   * Exercício criado por qualquer profissional entra já aprovado. Presente
+   * só para o profissional.
+   */
+  aprovacaoAutomaticaExercicios?: boolean;
   /** Tratamentos do usuário naquela clínica (recorte `ObterTratamento`). */
   tratamentos?: TratamentoResponseApi[];
 }

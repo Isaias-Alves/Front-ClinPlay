@@ -16,6 +16,7 @@ import { RiHospitalLine } from "react-icons/ri";
 import { useApp } from "@contexts";
 import { ESTADOS_BR, mensagemDeErro } from "@utils";
 import { clinicasServices } from "@services";
+import { AprovacaoAutomaticaExercicios } from "@components";
 
 interface ClinicaFormData {
   nome: string;
@@ -46,6 +47,9 @@ export function ClinicaDetalhesPage() {
   const { clinicas, notificar, refreshData } = useApp();
 
   const clinica = clinicas.find((c) => c.clinicaId === id);
+  // Mesma regra do backend para editar a clínica e a aprovação automática.
+  const podeGerirClinica =
+    !!clinica?.permissoes?.dono || !!clinica?.permissoes?.adminClinica;
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -231,6 +235,13 @@ export function ClinicaDetalhesPage() {
                     Alterar Plano
                   </button>
                 </div>
+
+                {podeGerirClinica && (
+                  <AprovacaoAutomaticaExercicios
+                    clinicaId={clinica.clinicaId}
+                    ativo={!!clinica.aprovacaoAutomaticaExercicios}
+                  />
+                )}
               </motion.div>
             ) : (
               <motion.form
