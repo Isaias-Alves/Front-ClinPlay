@@ -142,10 +142,17 @@ export function ExercicioFormPage() {
         },
       };
 
-      await clinicasServices.solicitarExercicio(clinicaId, payload);
+      const solicitacao = await clinicasServices.solicitarExercicio(
+        clinicaId,
+        payload,
+      );
 
+      // O backend aprova na hora quando quem cria tem `adminExercicios` ou a
+      // clínica tem aprovação automática; caso contrário fica pendente.
       notificar(
-        "Exercício submetido para aprovação/criação com sucesso!",
+        solicitacao?.situacao === "APROVADA"
+          ? "Exercício criado e já disponível na clínica!"
+          : "Exercício enviado para aprovação de um administrador.",
         "sucesso",
       );
       navigate("/inicio-profissional");

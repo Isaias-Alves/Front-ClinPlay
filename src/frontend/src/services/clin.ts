@@ -157,6 +157,11 @@ export const clinicasServices = {
     return data;
   },
 
+  /** PUT /clinica/{clinicaId}/aprovacao-automatica — só dono e adminClinica. */
+  atualizarAprovacaoAutomatica: async (clinicaId: string, ativo: boolean) => {
+    await api.put(`/clinica/${clinicaId}/aprovacao-automatica`, { ativo });
+  },
+
   solicitarExercicio: async (
     clinicaId: string,
     dados: {

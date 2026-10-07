@@ -13,6 +13,7 @@ import { VideoExercicio } from "./VideoExercicio";
 import { BuscarClinicaModal } from "./BuscarClinicaModal";
 import { SeletorPaciente } from "./SeletorPaciente";
 import { ModalPrescreverExercicio } from "./ModalPrescreverExercicio";
+import { AprovacaoAutomaticaExercicios } from "./AprovacaoAutomaticaExercicios";
 import { RankingPacientes } from "./RankingPacientes";
 
 export type { PrescricaoPayload } from "./ModalPrescreverExercicio";
@@ -33,4 +34,5 @@ export {
   SeletorPaciente,
   ModalPrescreverExercicio,
   RankingPacientes,
+  AprovacaoAutomaticaExercicios,
 };
