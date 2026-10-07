@@ -15,8 +15,10 @@ import { SeletorPaciente } from "./SeletorPaciente";
 import { ModalPrescreverExercicio } from "./ModalPrescreverExercicio";
 import { AprovacaoAutomaticaExercicios } from "./AprovacaoAutomaticaExercicios";
 import { RankingPacientes } from "./RankingPacientes";
+import { Tutorial } from "./Tutorial";
 
 export type { PrescricaoPayload } from "./ModalPrescreverExercicio";
+export type { PassoTutorial } from "./Tutorial";
 
 export {
   LoginButtonGoogle,
@@ -35,4 +37,5 @@ export {
   ModalPrescreverExercicio,
   RankingPacientes,
   AprovacaoAutomaticaExercicios,
+  Tutorial,
 };
