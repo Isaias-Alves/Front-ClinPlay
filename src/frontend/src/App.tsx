@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppProvider, useApp } from "@contexts";
 import { LogotipoClinPlay } from "@components";
+import { tokenStorage } from "@services";
 import RouteGuard from "./components/RouteGuard";
 
 // Code splitting por rota: o bundle único passava de 890 kB, o que é caro
@@ -51,8 +52,18 @@ interface RotaPrivada {
   element: React.ReactElement;
 }
 
+/**
+ * `/` é o `start_url` da PWA: toda reabertura do app instalado começa aqui.
+ * A tela de login não olhava a sessão, então quem já estava logado voltava
+ * ao login a cada abertura. Com token guardado, segue para `/inicio`, como
+ * faz o `OAuthCallback`: o `RouteGuard` leva o profissional ao painel dele,
+ * e um token recusado pelo servidor volta para cá via `encerrarSessao`.
+ */
+const PaginaInicial = () =>
+  tokenStorage.obter() ? <Navigate to="/inicio" replace /> : <LoginPage />;
+
 const ROTAS_PUBLICAS: Array<{ path: string; element: React.ReactElement }> = [
-  { path: "/", element: <LoginPage /> },
+  { path: "/", element: <PaginaInicial /> },
   { path: "/cadastro", element: <CadastroPage /> },
   { path: "/oauth/setup", element: <OAuthSetup /> },
   { path: "/oauth/callback", element: <OAuthCallback /> },
