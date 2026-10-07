@@ -3,7 +3,8 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import { useTratamentoSocket } from "../hooks/useTratamentoSocket";
 import { useApp } from "@contexts";
 import { clinicasServices, tratamentoServices } from "@services";
-import { ModalPrescreverExercicio } from "@components"; // <-- IMPORT DO NOVO MODAL
+import { ModalPrescreverExercicio, Tutorial } from "@components"; // <-- IMPORT DO NOVO MODAL
+import { useTutorial } from "@hooks";
 import {
   FiArrowLeft,
   FiPlus,
@@ -19,6 +20,7 @@ import {
   FiPower,
   FiCheck,
   FiEdit2,
+  FiHelpCircle,
 } from "react-icons/fi";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -35,7 +37,7 @@ import type {
   PrescricaoView,
   TratamentoResponseApi,
 } from "@interfaces";
-import type { PrescricaoPayload } from "@components";
+import type { PassoTutorial, PrescricaoPayload } from "@components";
 
 type EstadoSala = {
   tratamento: TratamentoResponseApi | null;
@@ -166,11 +168,60 @@ function salaReducer(estado: EstadoSala, evento: EventoTratamento): EstadoSala {
   }
 }
 
+/**
+ * Tutorial da primeira visita do fisioterapeuta à sala. O fluxo que costuma
+ * confundir: o exercício da clínica é um modelo com números genéricos, e é
+ * aqui que ele vira a prescrição deste paciente.
+ */
+const PASSOS_TUTORIAL: PassoTutorial[] = [
+  {
+    titulo: "Bem-vindo à sala de tratamento",
+    texto:
+      "Aqui você monta o tratamento deste paciente. Os exercícios da clínica são modelos com números genéricos; nesta sala você os prescreve e ajusta para a necessidade dele.",
+  },
+  {
+    alvo: "adicionar",
+    titulo: "Adicionar um exercício",
+    texto:
+      "Escolha um exercício da clínica. Ele chega preenchido com os números padrão do cadastro: ajuste séries, repetições e tempos para este paciente antes de salvar.",
+  },
+  {
+    alvo: "prescricao",
+    titulo: "Exercícios prescritos",
+    texto:
+      "Cada exercício prescrito aparece como um cartão nesta lista, com as vezes ao dia, as séries e as repetições deste paciente.",
+  },
+  {
+    alvo: "editar",
+    titulo: "Ajustar os números",
+    texto:
+      "Toque no lápis para mudar os números quando o paciente evoluir. A mudança vale só para este tratamento: o exercício da clínica continua igual. O X remove o exercício.",
+  },
+  {
+    alvo: "feedbacks",
+    titulo: "Feedbacks do paciente",
+    texto:
+      "O que o paciente relatou depois dos exercícios. Use para decidir o próximo ajuste.",
+  },
+  {
+    alvo: "configuracoes",
+    titulo: "Configurações do tratamento",
+    texto:
+      "Na engrenagem você muda a descrição, a data limite de acesso e os alertas automáticos, ou finaliza o tratamento.",
+  },
+  {
+    alvo: "ajuda",
+    titulo: "Rever o tutorial",
+    texto: "Quando quiser ver estas dicas de novo, toque aqui.",
+  },
+];
+
 export function TratamentoSalaPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { clinicaSelecionadaId, confirmar, notificar } = useApp();
+  const { clinicaSelecionadaId, confirmar, notificar, usuario } = useApp();
+  const tutorial = useTutorial("sala-tratamento", usuario?.id);
 
   const tratamentoBase = location.state?.tratamentoBase;
 
@@ -391,13 +442,25 @@ export function TratamentoSalaPage() {
                 <FiArrowLeft /> Voltar
               </button>
 
-              <button
-                onClick={abrirModalConfig}
-                className="p-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-xl transition-all active:scale-95 flex items-center gap-2 border border-white/5"
-                title="Configurações do Tratamento"
-              >
-                <FiSettings className="text-xl" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={tutorial.abrir}
+                  data-tutorial="ajuda"
+                  className="p-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-xl transition-all active:scale-95 flex items-center gap-2 border border-white/5"
+                  title="Ver tutorial da sala"
+                  aria-label="Ver tutorial da sala"
+                >
+                  <FiHelpCircle className="text-xl" />
+                </button>
+                <button
+                  onClick={abrirModalConfig}
+                  data-tutorial="configuracoes"
+                  className="p-3 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-xl transition-all active:scale-95 flex items-center gap-2 border border-white/5"
+                  title="Configurações do Tratamento"
+                >
+                  <FiSettings className="text-xl" />
+                </button>
+              </div>
             </div>
 
             <div>
@@ -480,6 +543,7 @@ export function TratamentoSalaPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setIsFeedbackModalOpen(true)}
+              data-tutorial="feedbacks"
               className="px-5 py-3 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-emerald-300 hover:text-emerald-600 text-sm font-bold rounded-2xl shadow-sm active:scale-95 transition-all flex items-center gap-2 group"
             >
               <FiMessageSquare
@@ -498,6 +562,7 @@ export function TratamentoSalaPage() {
             </button>
             <button
               onClick={abrirModalExercicios}
+              data-tutorial="adicionar"
               className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-2xl shadow-md shadow-slate-300 active:scale-95 transition-all flex items-center gap-2"
             >
               <FiPlus className="text-lg" /> Adicionar Exercício
@@ -526,9 +591,11 @@ export function TratamentoSalaPage() {
           ) : (
             <AnimatePresence>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {prescricoesDe(t).map((p) => (
+                {prescricoesDe(t).map((p, i) => (
                   <motion.div
                     key={p.id}
+                    // Só o primeiro cartão é alvo do tutorial.
+                    data-tutorial={i === 0 ? "prescricao" : undefined}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
@@ -547,6 +614,7 @@ export function TratamentoSalaPage() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => abrirEdicaoPrescricao(p)}
+                            data-tutorial={i === 0 ? "editar" : undefined}
                             className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-colors"
                             title="Editar prescrição"
                             aria-label={`Editar prescrição de ${p.exercicioNome}`}
@@ -874,6 +942,12 @@ export function TratamentoSalaPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Tutorial
+        passos={PASSOS_TUTORIAL}
+        aberto={tutorial.aberto}
+        onFechar={tutorial.fechar}
+      />
     </div>
   );
 }
