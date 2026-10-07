@@ -7,7 +7,11 @@ const TEMPO_PREPARO = 3;
 /** Frequência de atualização: suave o bastante para animar, barata no mobile. */
 const INTERVALO_MS = 50;
 
-const duracaoDaFase = (fase: FaseExercicio, config: ConfigMotor): number => {
+const duracaoDaFase = (
+  fase: FaseExercicio,
+  config: ConfigMotor,
+  fimDeSerie: boolean,
+): number => {
   switch (fase) {
     case "PREPARANDO":
       return TEMPO_PREPARO;
@@ -16,7 +20,7 @@ const duracaoDaFase = (fase: FaseExercicio, config: ConfigMotor): number => {
     case "ACAO_SECUNDARIA":
       return config.tempoSecundario;
     case "PAUSA":
-      return config.tempoPausa;
+      return fimDeSerie ? config.tempoPausaSeries : config.tempoPausa;
     default:
       return 0;
   }
@@ -47,7 +51,9 @@ export function useMotorExercicio(config: ConfigMotor) {
   /** Tempo já acumulado na fase antes da pausa corrente. */
   const acumuladoRef = useRef(0);
 
-  const duracao = duracaoDaFase(fase, config);
+  /** A pausa depois da última repetição é o descanso entre séries. */
+  const fimDeSerie = repAtual >= config.repeticoesTotais;
+  const duracao = duracaoDaFase(fase, config, fimDeSerie);
 
   const iniciarFase = useCallback((proxima: FaseExercicio) => {
     acumuladoRef.current = 0;
@@ -66,6 +72,9 @@ export function useMotorExercicio(config: ConfigMotor) {
         return iniciarFase("ACAO_SECUNDARIA");
 
       case "ACAO_SECUNDARIA":
+        // Última repetição da última série: não há o que esperar.
+        if (fimDeSerie && serieAtual >= config.seriesTotais)
+          return setFase("CONCLUIDO");
         return iniciarFase("PAUSA");
 
       case "PAUSA":
@@ -85,6 +94,7 @@ export function useMotorExercicio(config: ConfigMotor) {
     }
   }, [
     fase,
+    fimDeSerie,
     repAtual,
     serieAtual,
     config.repeticoesTotais,
@@ -131,6 +141,7 @@ export function useMotorExercicio(config: ConfigMotor) {
     serieAtual,
     repAtual,
     pausado,
+    pausaEntreSeries: fase === "PAUSA" && fimDeSerie,
   };
 
   return { estado, alternarPausa };
@@ -149,12 +160,27 @@ export const normalizarConfig = (
     return Number.isFinite(n) && n > 0 ? Math.max(minimo, n) : padrao;
   };
 
+  // A pausa entre séries aceita 0 (emendar as séries). Ausente nas
+  // prescrições anteriores ao campo: herda a pausa entre repetições, que é
+  // como o motor se comportava antes.
+  const tempoPausa = numero(c.tempoDescanso, 2, 0.5);
+  const pausaSeries = Number(c.tempoDescansoSeries);
+  const tempoPausaSeries =
+    c.tempoDescansoSeries !== null &&
+    c.tempoDescansoSeries !== undefined &&
+    c.tempoDescansoSeries !== "" &&
+    Number.isFinite(pausaSeries) &&
+    pausaSeries >= 0
+      ? pausaSeries
+      : tempoPausa;
+
   return {
     acaoPrincipal: String(c.acaoPrincipal || "Contraia"),
     acaoSecundaria: String(c.acaoSecundaria || "Relaxe"),
     tempoPrincipal: numero(c.tempoPrincipal, 3, 0.5),
     tempoSecundario: numero(c.tempoSecundario, 3, 0.5),
-    tempoPausa: numero(c.tempoDescanso, 2, 0.5),
+    tempoPausa,
+    tempoPausaSeries,
     seriesTotais: Math.round(numero(c.series, 1, 1)),
     repeticoesTotais: Math.round(numero(c.repeticoes, 10, 1)),
   };

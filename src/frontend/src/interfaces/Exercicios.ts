@@ -12,8 +12,13 @@ export interface ExercicioConfig {
   tempoPrincipal: number;
   /** Segundos da ação secundária. */
   tempoSecundario: number;
-  /** Segundos de descanso entre repetições/séries. */
+  /** Segundos de pausa entre uma repetição e a próxima. */
   tempoDescanso: number;
+  /**
+   * Segundos de pausa entre uma série e a próxima. Nulo nos exercícios e
+   * prescrições anteriores ao campo: o motor usa `tempoDescanso` no lugar.
+   */
+  tempoDescansoSeries?: number | null;
 }
 
 export interface Exercicio {

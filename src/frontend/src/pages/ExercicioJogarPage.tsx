@@ -43,7 +43,8 @@ export function ExercicioJogarPage() {
 
   const config = normalizarConfig(prescricao?.customizacao);
   const { estado, alternarPausa } = useMotorExercicio(config);
-  const { fase, tempoRestante, serieAtual, repAtual, pausado } = estado;
+  const { fase, tempoRestante, serieAtual, repAtual, pausado, pausaEntreSeries } =
+    estado;
 
   // O paciente acompanha o motor visual sem tocar no aparelho: sem isto a
   // tela apaga no meio da série. Liberado ao concluir ou ao pausar, para
@@ -72,7 +73,9 @@ export function ExercicioJogarPage() {
       ? config.acaoPrincipal
       : fase === "ACAO_SECUNDARIA"
         ? config.acaoSecundaria
-        : (TEXTO_DA_FASE[fase] ?? "");
+        : pausaEntreSeries
+          ? "Descanse, a próxima série já vem..."
+          : (TEXTO_DA_FASE[fase] ?? "");
 
   const handleSair = async () => {
     const sair = await confirmar({

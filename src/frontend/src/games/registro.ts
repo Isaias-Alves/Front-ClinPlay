@@ -131,7 +131,10 @@ export const rotulosDosTempos = (
   jogoId: string | undefined,
   acaoPrincipal?: string | null,
   acaoSecundaria?: string | null,
-): Record<"principal" | "secundario" | "descanso", RotuloTempo> => {
+): Record<
+  "principal" | "secundario" | "descanso" | "descansoSeries",
+  RotuloTempo
+> => {
   const { explicacaoTempos } = obterJogo(jogoId);
   return {
     principal: {
@@ -143,8 +146,12 @@ export const rotulosDosTempos = (
       dica: explicacaoTempos.secundaria,
     },
     descanso: {
-      rotulo: "Descanso entre repetições",
-      dica: "Pausa depois de cada repetição, antes da próxima começar.",
+      rotulo: "Pausa entre repetições",
+      dica: "Pausa curta depois de cada repetição, antes da próxima começar.",
+    },
+    descansoSeries: {
+      rotulo: "Pausa entre séries",
+      dica: "Descanso depois da última repetição de uma série, antes da próxima série. Costuma ser maior que a pausa entre repetições.",
     },
   };
 };

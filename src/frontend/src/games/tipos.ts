@@ -11,7 +11,10 @@ export interface ConfigMotor {
   /** Durações em segundos. */
   tempoPrincipal: number;
   tempoSecundario: number;
+  /** Pausa depois de cada repetição. */
   tempoPausa: number;
+  /** Pausa depois da última repetição de uma série, antes da próxima. */
+  tempoPausaSeries: number;
   seriesTotais: number;
   repeticoesTotais: number;
 }
@@ -26,6 +29,8 @@ export interface EstadoMotor {
   serieAtual: number;
   repAtual: number;
   pausado: boolean;
+  /** `true` enquanto a fase `PAUSA` é o descanso entre uma série e a próxima. */
+  pausaEntreSeries: boolean;
 }
 
 /**

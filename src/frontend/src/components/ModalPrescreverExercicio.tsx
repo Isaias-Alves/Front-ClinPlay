@@ -37,10 +37,14 @@ export interface PrescricaoPayload {
  * Campos do formulário. `tempoInativo` é texto porque a interface o edita
  * como HH:MM; vira número de horas só na hora de montar o payload.
  */
-type FormPrescricao = Omit<ExercicioConfig, "tempoInativo"> & {
+type FormPrescricao = Omit<
+  ExercicioConfig,
+  "tempoInativo" | "tempoDescansoSeries"
+> & {
   objetivo: string;
   observacao: string;
   tempoInativo: string;
+  tempoDescansoSeries: number;
 };
 
 /** Campos numéricos editáveis na grade de ajustes finos. */
@@ -52,6 +56,7 @@ type CampoNumerico = Extract<
   | "tempoPrincipal"
   | "tempoSecundario"
   | "tempoDescanso"
+  | "tempoDescansoSeries"
 >;
 
 /** Contagens do motor, na ordem em que aparecem na tela. */
@@ -66,6 +71,7 @@ const CAMPOS_TEMPO = [
   { key: "tempoPrincipal", rotulo: "principal" },
   { key: "tempoSecundario", rotulo: "secundario" },
   { key: "tempoDescanso", rotulo: "descanso" },
+  { key: "tempoDescansoSeries", rotulo: "descansoSeries" },
 ] as const;
 
 const CAMPOS_NUMERICOS: CampoNumerico[] = [
@@ -96,6 +102,10 @@ const formularioDe = (
   tempoPrincipal: config?.tempoPrincipal ?? 3,
   tempoSecundario: config?.tempoSecundario ?? 3,
   tempoDescanso: config?.tempoDescanso ?? 6,
+  // Exercícios anteriores ao campo: parte da pausa entre repetições, que era
+  // o que o paciente fazia entre as séries até aqui.
+  tempoDescansoSeries:
+    config?.tempoDescansoSeries ?? config?.tempoDescanso ?? 6,
 });
 
 /** Mensagem de erro de um campo do modal. */
@@ -227,6 +237,7 @@ export const ModalPrescreverExercicio: React.FC<
         tempoPrincipal: Number(formPrescricao.tempoPrincipal),
         tempoSecundario: Number(formPrescricao.tempoSecundario),
         tempoDescanso: Number(formPrescricao.tempoDescanso),
+        tempoDescansoSeries: Number(formPrescricao.tempoDescansoSeries),
       },
     };
 
@@ -480,7 +491,7 @@ export const ModalPrescreverExercicio: React.FC<
                         ))}
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                         {CAMPOS_TEMPO.map((campo) => {
                           const { rotulo, dica } = rotulos[campo.rotulo];
                           return (

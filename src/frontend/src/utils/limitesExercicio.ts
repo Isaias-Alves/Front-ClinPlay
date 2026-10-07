@@ -42,7 +42,18 @@ export const LIMITES_EXERCICIO = {
     rotulo: "Tempo secundário",
     inteiro: false,
   },
-  tempoDescanso: { min: 0, max: 300, rotulo: "Descanso", inteiro: false },
+  tempoDescanso: {
+    min: 0,
+    max: 300,
+    rotulo: "Pausa entre repetições",
+    inteiro: false,
+  },
+  tempoDescansoSeries: {
+    min: 0,
+    max: 300,
+    rotulo: "Pausa entre séries",
+    inteiro: false,
+  },
   diasInativo: { min: 0, max: 30, rotulo: "Intervalo em dias", inteiro: true },
 } as const satisfies Record<string, LimiteNumerico>;
 
