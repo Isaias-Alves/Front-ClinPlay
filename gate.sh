@@ -3,6 +3,9 @@
 # Ordem importa: o que falha mais rápido e mais barato vem primeiro.
 set -e
 
+# O app (package.json, tsconfig, node_modules) mora em src/frontend.
+cd "$(dirname "$0")/src/frontend"
+
 echo "▸ typecheck"
 npx tsc --noEmit
 
