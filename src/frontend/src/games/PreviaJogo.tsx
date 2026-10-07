@@ -27,6 +27,7 @@ const CONFIG_DEMO: ConfigMotor = {
   tempoPrincipal: CICLO[0].duracao,
   tempoSecundario: CICLO[1].duracao,
   tempoPausa: CICLO[2].duracao,
+  tempoPausaSeries: CICLO[2].duracao,
   seriesTotais: 1,
   repeticoesTotais: 1,
 };
@@ -40,6 +41,7 @@ const QUADRO_PARADO: EstadoMotor = {
   progresso: 0.92,
   serieAtual: 1,
   repAtual: 1,
+  pausaEntreSeries: false,
   pausado: true,
 };
 
@@ -80,6 +82,7 @@ function useCicloDemonstracao(ativo: boolean): EstadoMotor {
     progresso: Math.min(1, decorrido / duracao),
     serieAtual: 1,
     repAtual: 1,
+    pausaEntreSeries: false,
     pausado: !ativo,
   };
 }

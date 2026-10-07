@@ -33,7 +33,7 @@ interface ExercicioFormData {
     tempoPrincipal: number;
     tempoSecundario: number;
     tempoDescanso: number;
-    tempoIntervalo: number;
+    tempoDescansoSeries: number;
   };
 }
 
@@ -82,7 +82,12 @@ export function ExercicioDetalhesPage() {
         tempoPrincipal: exercicioDaMemoria.configPadrao?.tempoPrincipal || 0,
         tempoSecundario: exercicioDaMemoria.configPadrao?.tempoSecundario || 0,
         tempoDescanso: exercicioDaMemoria.configPadrao?.tempoDescanso || 0,
-        tempoIntervalo: exercicioDaMemoria.configPadrao?.tempoIntervalo || 0,
+        // `tempoIntervalo` não existe na API; o campo real é a pausa entre
+        // séries, que herda a pausa entre repetições nos exercícios antigos.
+        tempoDescansoSeries:
+          exercicioDaMemoria.configPadrao?.tempoDescansoSeries ??
+          exercicioDaMemoria.configPadrao?.tempoDescanso ??
+          0,
       },
     });
   }, [exercicioDaMemoria, navigate, reset]);
@@ -212,8 +217,8 @@ export function ExercicioDetalhesPage() {
                           unit: "s",
                         },
                         {
-                          label: "Intervalo",
-                          val: currentFormValues.configPadrao?.tempoIntervalo,
+                          label: rotulos.descansoSeries.rotulo,
+                          val: currentFormValues.configPadrao?.tempoDescansoSeries,
                           unit: "s",
                         },
                       ].map((item, idx) => (
@@ -407,17 +412,17 @@ export function ExercicioDetalhesPage() {
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                          Intervalo Séries (s)
+                          {rotulos.descansoSeries.rotulo} (s)
                         </label>
                         <input
-                          {...atributosNumero("tempoDescanso")}
-                          {...register("configPadrao.tempoIntervalo", {
-                            validate: (v) => validarNumero(v, "tempoDescanso"),
+                          {...atributosNumero("tempoDescansoSeries")}
+                          {...register("configPadrao.tempoDescansoSeries", {
+                            validate: (v) => validarNumero(v, "tempoDescansoSeries"),
                           })}
-                          aria-invalid={!!errors.configPadrao?.tempoIntervalo}
+                          aria-invalid={!!errors.configPadrao?.tempoDescansoSeries}
                           className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                         />
-                        <Erro mensagem={errors.configPadrao?.tempoIntervalo?.message} />
+                        <Erro mensagem={errors.configPadrao?.tempoDescansoSeries?.message} />
                       </div>
                     </div>
                   </div>

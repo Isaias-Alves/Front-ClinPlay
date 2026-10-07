@@ -39,6 +39,7 @@ interface ExercicioFormData {
     tempoPrincipal: number;
     tempoSecundario: number;
     tempoDescanso: number;
+    tempoDescansoSeries: number;
   };
 }
 
@@ -77,6 +78,7 @@ export function ExercicioFormPage() {
         tempoPrincipal: 3,
         tempoSecundario: 3,
         tempoDescanso: 6,
+        tempoDescansoSeries: 30,
       },
     },
   });
@@ -139,6 +141,7 @@ export function ExercicioFormPage() {
           tempoPrincipal: Number(data.configPadrao.tempoPrincipal),
           tempoSecundario: Number(data.configPadrao.tempoSecundario),
           tempoDescanso: Number(data.configPadrao.tempoDescanso),
+          tempoDescansoSeries: Number(data.configPadrao.tempoDescansoSeries),
         },
       };
 
@@ -313,7 +316,7 @@ export function ExercicioFormPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 pt-2">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
                 <div>
                   <label className="min-h-[3em] flex items-end text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
                     {rotulos.principal.rotulo} (s)
@@ -363,6 +366,25 @@ export function ExercicioFormPage() {
                   <Erro mensagem={errors.configPadrao?.tempoDescanso?.message} />
                   <span className="text-[10px] text-slate-400 mt-1 block leading-snug">
                     {rotulos.descanso.dica}
+                  </span>
+                </div>
+                <div>
+                  <label className="min-h-[3em] flex items-end text-[10px] font-bold text-slate-700 mb-1.5 uppercase">
+                    {rotulos.descansoSeries.rotulo} (s)
+                  </label>
+                  <input
+                    {...atributosNumero("tempoDescansoSeries")}
+                    {...register("configPadrao.tempoDescansoSeries", {
+                      validate: (v) => validarNumero(v, "tempoDescansoSeries"),
+                    })}
+                    aria-invalid={!!errors.configPadrao?.tempoDescansoSeries}
+                    className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-slate-700 text-center focus:border-indigo-500"
+                  />
+                  <Erro
+                    mensagem={errors.configPadrao?.tempoDescansoSeries?.message}
+                  />
+                  <span className="text-[10px] text-slate-400 mt-1 block leading-snug">
+                    {rotulos.descansoSeries.dica}
                   </span>
                 </div>
                 <div>
