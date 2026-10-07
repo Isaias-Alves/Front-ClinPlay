@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, useWatch, Controller } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FiArrowLeft,
@@ -48,7 +48,6 @@ export function ClinicaFormPage() {
   const location = useLocation();
   const { notificar, refreshData } = useApp();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formProgress, setFormProgress] = useState(0);
 
   // Captura o plano e a validade escolhidos
   const planoId = location.state?.planoId;
@@ -69,35 +68,33 @@ export function ClinicaFormPage() {
     handleSubmit,
     setValue,
     control,
-    watch,
     formState: { errors, touchedFields },
   } = useForm<ClinicaFormData>({
     mode: "onChange",
     defaultValues: { tag: "@", uf: "" },
   });
 
-  const formValues = watch();
+  const formValues = useWatch({ control });
 
-  useEffect(() => {
-    const camposObrigatorios = [
-      "nome",
-      "cnpj",
-      "especialidade",
-      "tag",
-      "uf",
-      "cidade",
-    ] as const;
-    const camposPreenchidos = camposObrigatorios.filter((campo) => {
-      const valor = formValues[campo];
-      if (campo === "uf") return valor !== "";
-      if (campo === "cnpj") return valor?.replace(/\D/g, "").length >= 14;
-      if (campo === "tag") return valor?.length > 2 && valor !== "@";
-      return valor?.trim().length > 0 && !errors[campo];
-    });
-    setFormProgress(
-      (camposPreenchidos.length / camposObrigatorios.length) * 100,
-    );
-  }, [formValues, errors]);
+  // Derivado dos valores a cada render: guardar em estado via useEffect
+  // custava um render extra por tecla digitada.
+  const camposObrigatorios = [
+    "nome",
+    "cnpj",
+    "especialidade",
+    "tag",
+    "uf",
+    "cidade",
+  ] as const;
+  const camposPreenchidos = camposObrigatorios.filter((campo) => {
+    const valor = formValues[campo] ?? "";
+    if (campo === "uf") return valor !== "";
+    if (campo === "cnpj") return valor.replace(/\D/g, "").length >= 14;
+    if (campo === "tag") return valor.length > 2 && valor !== "@";
+    return valor.trim().length > 0 && !errors[campo];
+  });
+  const formProgress =
+    (camposPreenchidos.length / camposObrigatorios.length) * 100;
 
   const aplicarMascaraCNPJ = (value: string) => {
     return value

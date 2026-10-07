@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { authServices } from "@services";
 import { mensagemDeErro } from "@utils";
 import {
@@ -40,7 +40,7 @@ const useCadastroForm = () => {
     },
   });
 
-  const tipoSelecionado = watch("tipo");
+  const tipoSelecionado = useWatch({ control, name: "tipo" });
 
   const alternarTipo = () => {
     setValue(

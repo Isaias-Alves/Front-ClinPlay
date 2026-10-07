@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FiArrowLeft,
@@ -59,7 +59,7 @@ export function ExercicioDetalhesPage() {
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     formState: { errors },
   } = useForm<ExercicioFormData>({ mode: "onBlur" });
 
@@ -97,7 +97,7 @@ export function ExercicioDetalhesPage() {
     setIsEditing(false);
   };
 
-  const currentFormValues = watch();
+  const currentFormValues = useWatch({ control });
   const rotulos = rotulosDosTempos(
     currentFormValues.jogo,
     exercicioDaMemoria?.configPadrao?.acaoPrincipal,

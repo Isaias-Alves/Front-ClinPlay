@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, useWatch, Controller } from "react-hook-form";
 import { motion } from "framer-motion";
 import {
   FiArrowLeft,
@@ -34,14 +34,15 @@ export function TratamentosFormPage() {
   const { clinicaSelecionadaId, notificar, refreshData, confirmar } = useApp();
 
   const [pacientes, setPacientes] = useState<PacienteVinculadoClinica[]>([]);
-  const [carregandoPacientes, setCarregandoPacientes] = useState(true);
+  const [buscandoPacientes, setBuscandoPacientes] = useState(true);
+  // Sem clínica selecionada não há busca, logo não há o que esperar.
+  const carregandoPacientes = !!clinicaSelecionadaId && buscandoPacientes;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     register,
     handleSubmit,
     control,
-    watch,
     getValues,
     formState: { errors },
   } = useForm<TratamentoFormData>({
@@ -56,14 +57,13 @@ export function TratamentosFormPage() {
     },
   });
 
-  const lembreteSequencia = watch("lembreteConfig.sequencia");
-  const lembreteExercicios = watch("lembreteConfig.exercicios");
+  const [lembreteSequencia, lembreteExercicios, inicio] = useWatch({
+    control,
+    name: ["lembreteConfig.sequencia", "lembreteConfig.exercicios", "inicio"],
+  });
 
   useEffect(() => {
-    if (!clinicaSelecionadaId) {
-      setCarregandoPacientes(false);
-      return;
-    }
+    if (!clinicaSelecionadaId) return;
 
     const buscarPacientes = async () => {
       try {
@@ -74,7 +74,7 @@ export function TratamentosFormPage() {
         console.error("Erro ao buscar pacientes:", error);
         notificar("Não foi possível carregar os pacientes.", "erro");
       } finally {
-        setCarregandoPacientes(false);
+        setBuscandoPacientes(false);
       }
     };
 
@@ -264,7 +264,7 @@ export function TratamentosFormPage() {
                         validate: (valor) =>
                           validarPeriodo(getValues("inicio"), valor),
                       })}
-                      min={watch("inicio") || undefined}
+                      min={inicio || undefined}
                       aria-invalid={!!errors.fim}
                       className="w-full p-4 bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl outline-none text-sm text-slate-700 font-medium transition-colors"
                     />

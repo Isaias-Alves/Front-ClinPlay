@@ -95,7 +95,7 @@ export function ProtocoloDetalhesPage() {
     return () => {
       cancelado = true;
     };
-  }, [id]);
+  }, [id, notificar]);
 
   if (carregando || !protocolo) {
     return (
